@@ -41,7 +41,7 @@ describe("independent workplace revenue", () => {
   });
   it("monthly history never adds other workplaces", () => {
     const rows = [...shifts(), { ...shift, id: "oct", date: "2026-10-02", revenue: 10000 }];
-    expect(workplaceRevenueSeries(rows, workplaces, true).map((r) => [r.workplace0, r.workplace1])).toEqual([[10000, null], [80000, 60000]]);
+    expect(workplaceRevenueSeries(rows, workplaces, true).map((r) => r.details.map((d) => d.revenue.value))).toEqual([[10000, null], [80000, 60000]]);
   });
   it("one goal can be achieved without achieving another", () => {
     expect(revenueByWorkplace([{ ...shift, revenue: 100000 }, shifts()[1] as Shift], workplaces).map((r) => r.progress?.remaining)).toEqual([0, 90000]);
@@ -92,6 +92,6 @@ describe("independent workplace revenue", () => {
   });
   it("month transfer updates each month's history", () => {
     const rows = shifts(); rows[0] = { ...shift, date: "2026-12-02" };
-    expect(workplaceRevenueSeries(rows, workplaces, true).map((r) => [r.workplace0, r.workplace1])).toEqual([[null, 60000], [80000, null]]);
+    expect(workplaceRevenueSeries(rows, workplaces, true).map((r) => r.details.map((d) => d.revenue.value))).toEqual([[null, 60000], [80000, null]]);
   });
 });

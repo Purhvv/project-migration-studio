@@ -6,7 +6,7 @@ import { parseNumberInput } from "@/lib/format";
 import { useUpdateProfile, useUpdateRevenueGoal } from "@/data/queries";
 
 export type GoalField = "revenueGoal" | "monthlyGoal" | "hoursGoal" | "shiftsGoal";
-export function GoalDrawer({ open, onClose, field, title, value, workplaceId }: { open: boolean; onClose: () => void; field: GoalField; title: string; value: number | null; workplaceId?: string }) {
+export function GoalDrawer({ open, onClose, field, title, value, workplaceId }: { open: boolean; onClose: () => void; field: GoalField; title: string; value: number | null; workplaceId?: string | undefined }) {
   const update = useUpdateProfile();
   const updateRevenue = useUpdateRevenueGoal();
   const [v, setV] = useState("");
