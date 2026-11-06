@@ -4,6 +4,7 @@
  * Changes live only until the page is reloaded.
  */
 import { addDays, format, startOfDay } from "date-fns";
+import { computeEarnings } from "@/lib/shift-management";
 import type { Shift, ShiftStatus, UserProfile, Workplace } from "@/lib/types";
 
 export const mockProfile: UserProfile = {
