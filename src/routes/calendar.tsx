@@ -96,7 +96,7 @@ function CalendarPage() {
                     </span>
                     {list.slice(0, 2).map((s) => <DayMarker key={s.id} shift={s} />)}
                     {list.length > 2 && <span className="text-[10px] text-muted-foreground">+{formatNumber(list.length - 2)}</span>}
-                    {visibleConflicts.some((c) => conflictTouchesDate(c, key) || c.first.date === key || c.second.date === key) && <AlertTriangle aria-label="Пересечение смен" className="size-3 text-muted-foreground" />}
+                    {visibleConflicts.some((c) => conflictTouchesDate(c, key) || c.first.date === key || c.second.date === key) && <AlertTriangle aria-label="Пересечение смен" className="size-3 text-negative" />}
                   </Button>
                 );
               })}
@@ -175,7 +175,7 @@ function Legend() {
           ))}
         </div>
         <p className="mt-1.5">В завершённых сменах — отработанные часы, в остальных — время.</p>
-        <p className="mt-1.5 flex items-center gap-1.5"><AlertTriangle className="size-3" />Пересечение смен</p>
+        <p className="mt-1.5 flex items-center gap-1.5"><AlertTriangle className="size-3 text-negative" />Пересечение смен</p>
       </div>
     </div>
   );

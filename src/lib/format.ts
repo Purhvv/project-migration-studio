@@ -29,7 +29,7 @@ export function parseNumberInput(value: string): number | null {
 }
 
 export function formatMoney(value: number | null | undefined, currency = "RUB"): string {
-  if (value === null || value === undefined) return UNKNOWN;
+  if (value === null || value === undefined || !Number.isFinite(value)) return UNKNOWN;
   return new Intl.NumberFormat("ru-RU", {
     style: "currency",
     currency,
@@ -46,7 +46,7 @@ export function formatHours(minutes: number | null): string {
 
 export function formatHoursShort(minutes: number): string {
   const h = minutes / 60;
-  return `${Number.isInteger(h) ? h : h.toFixed(1)}ч`;
+  return `${formatNumber(h, 1)}ч`;
 }
 
 /** Duration in minutes; overnight shifts wrap past midnight. */

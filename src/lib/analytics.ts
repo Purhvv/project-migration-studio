@@ -16,6 +16,8 @@ export function chartSeries(shifts: Shift[], monthly: boolean) {
     earnings: sumKnown(list.map((s) => s.earnings)).value,
     revenue: sumKnown(list.map((s) => s.revenue)).value,
     partial: list.some((s) => s.earnings === null || s.revenue === null),
+    earningsPartial: list.some((s) => s.earnings === null),
+    revenuePartial: list.some((s) => s.revenue === null),
     shifts: list.length,
     minutes: list.reduce((a, s) => a + shiftMinutes(s.start, s.end), 0),
   }));
@@ -44,7 +46,7 @@ export function incomeStructure(shifts: Shift[]) {
   const total = sumKnown(confirmed.map((s) => s.earnings)).value;
   const gross = (base ?? 0) + (tips ?? 0) + (commission ?? 0) + (bonuses.value ?? 0);
   const remainder = total === null ? null : total - (gross - (penalties.value ?? 0));
-  const incomplete = confirmed.some((s) => s.basePay === null || s.tips === null || s.bonuses.some((a) => a.amount === null) || s.penalties.some((a) => a.amount === null));
+  const incomplete = confirmed.some((s) => s.basePay === null || s.tips === null || s.commissionPay == null || s.bonuses.some((a) => a.amount === null) || s.penalties.some((a) => a.amount === null));
   return { total, penalties, remainder, incomplete, excluded: shifts.length - confirmed.length, rows: [
     { name: "Почасовая оплата / ставки", value: base, color: "var(--chart-1)" },
     { name: "Процент от выручки", value: commission, color: "var(--chart-4)" },
