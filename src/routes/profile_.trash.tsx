@@ -14,7 +14,7 @@ import { fmtDate } from "@/lib/format";
 import { isTrashExpired, trashExpiresAt } from "@/lib/shift-management";
 import type { Shift } from "@/lib/types";
 
-export const Route = createFileRoute("/profile/trash")({
+export const Route = createFileRoute("/profile_/trash")({
   head: () => ({ meta: [
     { title: "Корзина смен — Shiftly" }, { name: "description", content: "Восстановление удалённых смен в течение 30 дней и окончательное удаление." },
     { property: "og:title", content: "Корзина смен — Shiftly" }, { property: "og:description", content: "Удалённые смены и восстановление в Shiftly." },

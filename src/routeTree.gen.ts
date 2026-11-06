@@ -14,8 +14,10 @@ import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as StatsRouteImport } from './routes/stats'
 import { Route as ProfileAccountRouteImport } from './routes/profile_.account'
+import { Route as ProfileTrashRouteImport } from './routes/profile_.trash'
 import { Route as ShiftsIdRouteImport } from './routes/shifts.$id'
 import { Route as ShiftsNewRouteImport } from './routes/shifts.new'
+import { Route as ShiftsIdEditRouteImport } from './routes/shifts.$id.edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -42,6 +44,11 @@ const ProfileAccountRoute = ProfileAccountRouteImport.update({
   path: '/profile/account',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileTrashRoute = ProfileTrashRouteImport.update({
+  id: '/profile_/trash',
+  path: '/profile/trash',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShiftsIdRoute = ShiftsIdRouteImport.update({
   id: '/shifts/$id',
   path: '/shifts/$id',
@@ -52,6 +59,11 @@ const ShiftsNewRoute = ShiftsNewRouteImport.update({
   path: '/shifts/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShiftsIdEditRoute = ShiftsIdEditRouteImport.update({
+  id: '/edit',
+  path: '/edit',
+  getParentRoute: () => ShiftsIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -59,8 +71,10 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/stats': typeof StatsRoute
   '/profile/account': typeof ProfileAccountRoute
-  '/shifts/$id': typeof ShiftsIdRoute
+  '/profile/trash': typeof ProfileTrashRoute
+  '/shifts/$id': typeof ShiftsIdRouteWithChildren
   '/shifts/new': typeof ShiftsNewRoute
+  '/shifts/$id/edit': typeof ShiftsIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -68,8 +82,10 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/stats': typeof StatsRoute
   '/profile/account': typeof ProfileAccountRoute
-  '/shifts/$id': typeof ShiftsIdRoute
+  '/profile/trash': typeof ProfileTrashRoute
+  '/shifts/$id': typeof ShiftsIdRouteWithChildren
   '/shifts/new': typeof ShiftsNewRoute
+  '/shifts/$id/edit': typeof ShiftsIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -78,8 +94,10 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/stats': typeof StatsRoute
   '/profile_/account': typeof ProfileAccountRoute
-  '/shifts/$id': typeof ShiftsIdRoute
+  '/profile_/trash': typeof ProfileTrashRoute
+  '/shifts/$id': typeof ShiftsIdRouteWithChildren
   '/shifts/new': typeof ShiftsNewRoute
+  '/shifts/$id/edit': typeof ShiftsIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -89,8 +107,10 @@ export interface FileRouteTypes {
     | '/profile'
     | '/stats'
     | '/profile/account'
+    | '/profile/trash'
     | '/shifts/$id'
     | '/shifts/new'
+    | '/shifts/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -98,8 +118,10 @@ export interface FileRouteTypes {
     | '/profile'
     | '/stats'
     | '/profile/account'
+    | '/profile/trash'
     | '/shifts/$id'
     | '/shifts/new'
+    | '/shifts/$id/edit'
   id:
     | '__root__'
     | '/'
@@ -107,8 +129,10 @@ export interface FileRouteTypes {
     | '/profile'
     | '/stats'
     | '/profile_/account'
+    | '/profile_/trash'
     | '/shifts/$id'
     | '/shifts/new'
+    | '/shifts/$id/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -117,7 +141,8 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   StatsRoute: typeof StatsRoute
   ProfileAccountRoute: typeof ProfileAccountRoute
-  ShiftsIdRoute: typeof ShiftsIdRoute
+  ProfileTrashRoute: typeof ProfileTrashRoute
+  ShiftsIdRoute: typeof ShiftsIdRouteWithChildren
   ShiftsNewRoute: typeof ShiftsNewRoute
 }
 
@@ -158,6 +183,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileAccountRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile_/trash': {
+      id: '/profile_/trash'
+      path: '/profile/trash'
+      fullPath: '/profile/trash'
+      preLoaderRoute: typeof ProfileTrashRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shifts/$id': {
       id: '/shifts/$id'
       path: '/shifts/$id'
@@ -172,8 +204,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShiftsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/shifts/$id/edit': {
+      id: '/shifts/$id/edit'
+      path: '/edit'
+      fullPath: '/shifts/$id/edit'
+      preLoaderRoute: typeof ShiftsIdEditRouteImport
+      parentRoute: typeof ShiftsIdRoute
+    }
   }
 }
+
+interface ShiftsIdRouteChildren {
+  ShiftsIdEditRoute: typeof ShiftsIdEditRoute
+}
+
+const ShiftsIdRouteChildren: ShiftsIdRouteChildren = {
+  ShiftsIdEditRoute: ShiftsIdEditRoute,
+}
+
+const ShiftsIdRouteWithChildren = ShiftsIdRoute._addFileChildren(
+  ShiftsIdRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -181,7 +232,8 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   StatsRoute: StatsRoute,
   ProfileAccountRoute: ProfileAccountRoute,
-  ShiftsIdRoute: ShiftsIdRoute,
+  ProfileTrashRoute: ProfileTrashRoute,
+  ShiftsIdRoute: ShiftsIdRouteWithChildren,
   ShiftsNewRoute: ShiftsNewRoute,
 }
 export const routeTree = rootRouteImport
