@@ -1,4 +1,5 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
+import { ShiftActions } from "@/components/shifts/ShiftActions";
 import { ChevronLeft, SearchX } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -28,8 +29,13 @@ export const Route = createFileRoute("/shifts/$id")({
       { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: ShiftDetails,
+  component: ShiftRoute,
 });
+
+function ShiftRoute() {
+  const editing = useRouterState({ select: (state) => state.location.pathname.endsWith("/edit") });
+  return <>{!editing && <ShiftDetails />}<Outlet /></>;
+}
 
 function ShiftDetails() {
   const { id } = Route.useParams();
@@ -80,6 +86,7 @@ function ShiftDetails() {
               )}
             </div>
           </Section>
+          <Section><ShiftActions shift={shift} detailed /></Section>
           {shift.status === "completed" && (
             <Section title="Детали">
               <Panel className="divide-y text-sm">

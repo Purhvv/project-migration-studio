@@ -12,6 +12,7 @@ import { useProfile, useShifts, useWorkplaces } from "@/data/queries";
 import { forecast } from "@/lib/rates";
 import { formatHours, formatMoney, formatNumber, shiftMinutes } from "@/lib/format";
 import { summarize } from "@/lib/summary";
+import { ShiftActions } from "@/components/shifts/ShiftActions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -135,8 +136,8 @@ function NextShift({ shifts }: { shifts: import("@/lib/types").Shift[] }) {
   const wp = wpMap.get(next.workplaceId);
   return (
     <Section title="Следующая смена">
-      <Link to="/shifts/$id" params={{ id: next.id }} className="block">
-        <Panel className="p-4">
+      <Panel className="p-4">
+      <div className="flex items-start gap-2"><Link to="/shifts/$id" params={{ id: next.id }} className="block min-w-0 flex-1">
           <div className="flex items-start justify-between">
             <div>
               <p className="font-semibold">{shiftDayLabel(next.date)}</p>
@@ -151,8 +152,8 @@ function NextShift({ shifts }: { shifts: import("@/lib/types").Shift[] }) {
             {wp && <WorkplaceDot color={wp.color} />}
             {wp?.name}
           </p>
-        </Panel>
-      </Link>
+      </Link><ShiftActions shift={next} /></div>
+      </Panel>
     </Section>
   );
 }

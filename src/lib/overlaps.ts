@@ -12,7 +12,7 @@ export function findShiftConflicts(candidate: Shift, shifts: Shift[]): ShiftConf
   const a = shiftInterval(candidate);
   if (!Number.isFinite(a.start)) return [];
   return shifts.flatMap((other) => {
-    if (other.id === candidate.id || other.status === "cancelled") return [];
+    if (other.id === candidate.id || other.status === "cancelled" || other.deletedAt) return [];
     const b = shiftInterval(other);
     const start = Math.max(a.start, b.start), end = Math.min(a.end, b.end);
     return end > start ? [{ first: candidate, second: other, start, end, minutes: (end - start) / 60000 }] : [];
