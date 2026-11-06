@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { useSaveShift, useShifts } from "@/data/queries";
+import { useSaveShift, useRestoreShift, useShifts } from "@/data/queries";
 import { findShiftConflicts } from "@/lib/overlaps";
 import type { Shift } from "@/lib/types";
 
 /** All interactive shift writes pass this gate; override is explicit. */
-export function useShiftSaveGuard(onCancel: () => void) {
-  const save = useSaveShift();
+export function useShiftSaveGuard(onCancel: () => void, mode: "save" | "restore" = "save") {
+  const write = useSaveShift();
+  const restore = useRestoreShift();
+  const save = mode === "restore" ? restore : write;
   const shifts = useShifts();
   const [request, setRequest] = useState<{ shift: Shift; onSuccess: () => void } | null>(null);
   const conflicts = request ? findShiftConflicts(request.shift, shifts.data ?? []) : [];

@@ -5,12 +5,13 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { db, dbShifts } from "./mock";
 import type { Shift, UserProfile, Workplace } from "@/lib/types";
+import { activeShifts, trashedShifts, moveToTrash, restoreShift, purgeShift, clearTrash } from "@/lib/shift-management";
 
 const delay = <T,>(v: T, ms = 350) => new Promise<T>((r) => setTimeout(() => r(structuredClone(v)), ms));
 
 export const shiftsQuery = queryOptions({
   queryKey: ["shifts"],
-  queryFn: (): Promise<Shift[]> => delay(dbShifts()),
+  queryFn: (): Promise<Shift[]> => delay(activeShifts(dbShifts())),
   staleTime: 60_000,
 });
 
@@ -27,6 +28,8 @@ export const profileQuery = queryOptions({
 });
 
 export const useShifts = () => useQuery(shiftsQuery);
+export const trashQuery = queryOptions({ queryKey: ["trash"], queryFn: (): Promise<Shift[]> => delay(trashedShifts(dbShifts())), staleTime: 60_000 });
+export const useTrash = () => useQuery(trashQuery);
 export const useWorkplaces = () => useQuery(workplacesQuery);
 export const useProfile = () => useQuery(profileQuery);
 
@@ -34,7 +37,10 @@ function useWrite<T>(key: string[], fn: (input: T) => void) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: T) => fn(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: key });
+      if (key[0] === "shifts") await qc.invalidateQueries({ queryKey: ["trash"] });
+    },
   });
 }
 
@@ -42,9 +48,15 @@ export const useSaveShift = () =>
   useWrite<Shift>(["shifts"], (s) => {
     const list = dbShifts();
     const i = list.findIndex((x) => x.id === s.id);
+    if (list[i]?.deletedAt || s.deletedAt) throw new Error("Сначала восстановите смену из корзины");
     if (i >= 0) list[i] = s;
     else list.push(s);
   });
+
+export const useTrashShift = () => useWrite<string>(["shifts"], (id) => moveToTrash(dbShifts(), id));
+export const useRestoreShift = () => useWrite<Shift>(["shifts"], (s) => restoreShift(dbShifts(), s.id));
+export const usePurgeShift = () => useWrite<string>(["shifts"], (id) => purgeShift(dbShifts(), id));
+export const useClearTrash = () => useWrite<void>(["shifts"], () => clearTrash(dbShifts()));
 
 export const useSaveWorkplace = () =>
   useWrite<Workplace>(["workplaces"], (w) => {

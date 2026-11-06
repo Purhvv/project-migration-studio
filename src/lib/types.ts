@@ -49,6 +49,8 @@ export interface Shift {
   penalties: Adjustment[];
   earnings: number | null;
   comment?: string | undefined;
+  /** Soft deletion timestamp; original status and financial data remain unchanged. */
+  deletedAt?: string | undefined;
 }
 
 export interface UserProfile {
