@@ -75,3 +75,11 @@ export const useUpdateProfile = () =>
   useWrite<Partial<UserProfile>>(["profile"], (p) => {
     db.profile = { ...db.profile, ...p };
   });
+
+export const useUpdateRevenueGoal = () =>
+  useWrite<{ workplaceId: string; value: number | null }>(["workplaces"], ({ workplaceId, value }) => {
+    const workplace = db.workplaces.find((w) => w.id === workplaceId);
+    if (!workplace) throw new Error("Место работы не найдено");
+    if (value !== null && (!Number.isFinite(value) || value <= 0)) throw new Error("Укажите положительную цель");
+    workplace.revenueGoal = value;
+  });

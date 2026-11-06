@@ -12,7 +12,6 @@ export const mockProfile: UserProfile = {
   email: "alina@example.com",
   currency: "RUB",
   monthlyGoal: 120000,
-  revenueGoal: 900000,
 };
 
 /** Demo rates — invented sample settings, editable in Профиль → Ставки. */
