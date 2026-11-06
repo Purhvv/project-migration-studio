@@ -36,7 +36,7 @@ describe("computeEarnings — single earnings formula", () => {
   });
   it("unknown commission makes the total unknown; unrecorded commission contributes nothing", () => {
     expect(computeEarnings({ ...base, basePay: 2000, tips: 1000, commissionPay: null })).toBeNull();
-    expect(computeEarnings({ ...base, basePay: 2000, tips: 1000, commissionPay: undefined })).toBe(3000);
+    expect(computeEarnings({ ...base, basePay: 2000, tips: 1000 })).toBe(3000);
   });
   it("unknown base pay makes the total unknown", () => {
     expect(computeEarnings({ ...base, basePay: null, tips: 1000 })).toBeNull();
