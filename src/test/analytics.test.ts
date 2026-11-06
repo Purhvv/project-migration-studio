@@ -26,6 +26,12 @@ describe("statistics rules", () => {
   it("never infers commission from personal revenue", () => {
     expect(incomeStructure([{ ...shift, commissionPay: null }]).rows[1]?.value).toBeNull();
   });
+  it("marks unknown commission as incomplete even when other categories reconcile", () => {
+    expect(incomeStructure([{ ...shift, commissionPay: null }]).incomplete).toBe(true);
+  });
+  it("keeps earnings and personal revenue completeness independent", () => {
+    expect(chartSeries([{ ...shift, revenue: null }], false)[0]).toMatchObject({ earningsPartial: false, revenuePartial: true });
+  });
   it("shows each adjustment separately newest first", () => {
     const rows = adjustmentHistory([shift, { ...shift, id: "new", date: "2026-11-05", bonuses: [{ id: "b1", label: "A", amount: 100 }, { id: "b2", label: "B", amount: 200 }] }], "bonuses");
     expect(rows.map((x) => x.operation.id)).toEqual(["b1", "b2", "b"]);

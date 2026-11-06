@@ -2,7 +2,7 @@ import { fireEvent, render, screen, cleanup } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { NumberInput } from "@/components/shared/NumberInput";
-import { cleanNumberInput, formatNumberInput, parseNumberInput } from "@/lib/format";
+import { cleanNumberInput, formatMoney, formatNumber, formatNumberInput, parseNumberInput } from "@/lib/format";
 
 afterEach(cleanup);
 function Harness() {
@@ -18,6 +18,29 @@ describe("numeric input", () => {
     expect(parseNumberInput("")).toBeNull();
     expect(parseNumberInput("9007199254740992")).toBeNull();
     expect(cleanNumberInput("12 345,60 ₽")).toBe("12345.60");
+  });
+  it("renders non-finite money as unknown rather than a financial value", () => {
+    expect(formatMoney(NaN)).toBe("—");
+    expect(formatMoney(Infinity)).toBe("—");
+  });
+  it("groups the requested large integer examples with narrow nonbreaking spaces", () => {
+    expect(formatNumber(12500)).toBe("12\u202f500");
+    expect(formatNumber(178000345)).toBe("178\u202f000\u202f345");
+    expect(formatNumber(2000)).toBe("2\u202f000");
+    expect(formatNumber(950)).toBe("950");
+  });
+  it("deletes digits next to grouping boundaries without jumping to the end", () => {
+    render(<Harness />);
+    const input = screen.getByRole<HTMLInputElement>("textbox", { name: "Amount" });
+    fireEvent.change(input, { target: { value: "12345", selectionStart: 5 } });
+    input.setSelectionRange(3, 3);
+    fireEvent.keyDown(input, { key: "Backspace" });
+    expect(input.value).toBe("1\u202f345");
+    expect(input.selectionStart).toBe(1);
+    input.setSelectionRange(1, 1);
+    fireEvent.keyDown(input, { key: "Delete" });
+    expect(input.value).toBe("145");
+    expect(input.selectionStart).toBe(1);
   });
   it("preserves logical caret when inserting in the middle", () => {
     render(<Harness />);
