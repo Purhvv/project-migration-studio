@@ -15,3 +15,4 @@
 - Until Supabase, writes go to the in-memory `db` in `src/data/mock.ts` via mutation hooks in `src/data/queries.ts`.
 - Interactive shift writes use the shared save guard, including completion; conflicts require explicit override so create and edit follow the same rules.
 - Numeric inputs keep canonical ungrouped decimal strings and use the shared NumberInput for presentation; parsers return nullable finite numbers to keep formatting out of calculations.
+- Statistics uses the existing rate-only forecast for the current month and workplace; chart axes must be direct Recharts children so SSR/source instrumentation does not hide them.
