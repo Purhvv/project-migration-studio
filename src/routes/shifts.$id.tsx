@@ -158,7 +158,7 @@ function FinishDrawer({ open, onClose, shift }: { open: boolean; onClose: () => 
     const bp = num(basePay);
     const tp = num(tips);
     guard.saveShift(
-      { ...shift, status: "completed", basePay: bp, tips: tp, revenue: num(revenue), earnings: bp === null || tp === null || shift.bonuses.some((a) => a.amount === null) || shift.penalties.some((a) => a.amount === null) || shift.commissionPay === null ? null : bp + tp + (shift.commissionPay ?? 0) + shift.bonuses.reduce((sum, a) => sum + (a.amount ?? 0), 0) - shift.penalties.reduce((sum, a) => sum + (a.amount ?? 0), 0) },
+      { ...shift, status: "completed", basePay: bp, tips: tp, revenue: num(revenue), earnings: bp === null ? null : bp + (tp ?? 0) },
       () => { toast("Смена завершена"); onClose(); },
     );
   };
