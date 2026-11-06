@@ -21,7 +21,7 @@ import type { Shift, ShiftStatus } from "@/lib/types";
 
 interface Adj { id: string; label: string; amount: string }
 
-export function ShiftForm({ initial, initialDate }: { initial?: Shift; initialDate?: string }) {
+export function ShiftForm({ initial, initialDate, restoring = false, onSaved }: { initial?: Shift; initialDate?: string | undefined; restoring?: boolean; onSaved?: () => void }) {
   const router = useRouter();
   const today = format(new Date(), "yyyy-MM-dd");
   const { data: workplaces } = useWorkplaces();
@@ -38,7 +38,7 @@ export function ShiftForm({ initial, initialDate }: { initial?: Shift; initialDa
   const [basePay, setBasePay] = useState(initial?.basePay == null ? "" : String(initial.basePay));
   const [commission, setCommission] = useState(initial?.commissionPay == null ? "" : String(initial.commissionPay));
   const [earnings, setEarnings] = useState(initial?.earnings == null ? "" : String(initial.earnings));
-  const guard = useShiftSaveGuard(() => router.history.back());
+  const guard = useShiftSaveGuard(() => onSaved ? onSaved() : router.history.back(), restoring ? "restore" : "save");
   const wpId = workplace || workplaces?.[0]?.id || "";
   const done = status !== "planned";
 
@@ -56,7 +56,8 @@ export function ShiftForm({ initial, initialDate }: { initial?: Shift; initialDa
     const updated = enteredTotalChanged ? candidate : reconcileConfirmedEdit(initial, candidate);
     guard.saveShift(updated, () => {
       toast(initial ? "Смена обновлена" : "Смена сохранена", { description: "Демо-режим: данные хранятся до перезагрузки страницы." });
-      if (initial) router.navigate({ to: "/shifts/$id", params: { id: initial.id } });
+      if (onSaved) onSaved();
+      else if (initial) router.navigate({ to: "/shifts/$id", params: { id: initial.id } });
       else router.navigate({ to: "/calendar" });
     });
   };

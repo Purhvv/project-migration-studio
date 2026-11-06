@@ -54,7 +54,13 @@ export const useSaveShift = () =>
   });
 
 export const useTrashShift = () => useWrite<string>(["shifts"], (id) => moveToTrash(dbShifts(), id));
-export const useRestoreShift = () => useWrite<Shift>(["shifts"], (s) => restoreShift(dbShifts(), s.id));
+export const useRestoreShift = () => useWrite<Shift>(["shifts"], (s) => {
+  const list = dbShifts(); const original = list.find((item) => item.id === s.id);
+  if (!original?.deletedAt) return;
+  restoreShift(list, s.id);
+  const { deletedAt: _deletedAt, ...restored } = s;
+  Object.assign(original, restored);
+});
 export const usePurgeShift = () => useWrite<string>(["shifts"], (id) => purgeShift(dbShifts(), id));
 export const useClearTrash = () => useWrite<void>(["shifts"], () => clearTrash(dbShifts()));
 

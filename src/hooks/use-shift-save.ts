@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSaveShift, useRestoreShift, useShifts } from "@/data/queries";
 import { findShiftConflicts } from "@/lib/overlaps";
 import type { Shift } from "@/lib/types";
+import { toast } from "sonner";
 
 /** All interactive shift writes pass this gate; override is explicit. */
 export function useShiftSaveGuard(onCancel: () => void, mode: "save" | "restore" = "save") {
@@ -13,6 +14,7 @@ export function useShiftSaveGuard(onCancel: () => void, mode: "save" | "restore"
   const conflicts = request ? findShiftConflicts(request.shift, shifts.data ?? []) : [];
   const persist = (shift: Shift, onSuccess: () => void) => save.mutate(shift, {
     onSuccess: () => { setRequest(null); onSuccess(); },
+    onError: (error) => { setRequest(null); toast(error instanceof Error ? error.message : "Не удалось сохранить смену"); },
   });
   return {
     saveShift: (shift: Shift, onSuccess: () => void) => {

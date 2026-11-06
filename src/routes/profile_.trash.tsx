@@ -13,6 +13,7 @@ import { useShiftSaveGuard } from "@/hooks/use-shift-save";
 import { fmtDate } from "@/lib/format";
 import { isTrashExpired, trashExpiresAt } from "@/lib/shift-management";
 import type { Shift } from "@/lib/types";
+import { ShiftForm } from "@/components/shifts/ShiftForm";
 
 export const Route = createFileRoute("/profile_/trash")({
   head: () => ({ meta: [
@@ -25,12 +26,14 @@ function TrashPage() {
   const trash = useTrash(); const map = useWorkplaceMap(); const purge = usePurgeShift(); const clear = useClearTrash(); const router = useRouter();
   const guard = useShiftSaveGuard(() => {}, "restore");
   const [confirm, setConfirm] = useState<Shift | "all" | null>(null);
+  const [editing, setEditing] = useState<Shift | null>(null);
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
   const restore = (shift: Shift) => {
     if (isTrashExpired(shift)) { toast("Срок восстановления истёк"); return; }
     guard.saveShift(shift, () => toast("Смена восстановлена"));
   };
+  if (editing) return <ShiftForm initial={editing} restoring onSaved={() => setEditing(null)} />;
   return <div className="space-y-5 pb-6">
     <header className="flex items-center gap-2 px-5 pt-4"><Button variant="ghost" size="icon" onClick={() => router.history.back()} aria-label="Назад"><ChevronLeft /></Button><h1 className="flex-1 font-display text-xl font-semibold">Корзина</h1>
       {!!trash.data?.length && <Button variant="ghost" size="icon" aria-label="Очистить корзину" title="Очистить корзину" onClick={() => setConfirm("all")}><Trash2 /></Button>}
@@ -50,8 +53,7 @@ function TrashPage() {
     }</Section>
     <ConflictWarning {...guard.warning} onFix={() => {
       const shift = guard.warning.conflicts[0]?.first; guard.warning.onFix();
-      if (shift) router.navigate({ to: "/profile/trash", search: {} });
-      toast("Восстановите с подтверждением либо исправьте время конфликтующей активной смены");
+      if (shift) setEditing(shift);
     }} />
     <ConfirmAction open={confirm !== null} onClose={() => setConfirm(null)} title={confirm === "all" ? "Очистить корзину?" : "Удалить смену навсегда?"} description={confirm === "all" ? "Все смены в корзине будут удалены навсегда. Восстановить их будет невозможно." : "Восстановить её будет невозможно"} action={confirm === "all" ? "Очистить" : "Удалить навсегда"} pending={purge.isPending || clear.isPending} onConfirm={() => {
       const onSuccess = () => { setConfirm(null); toast("Удалено навсегда"); };
