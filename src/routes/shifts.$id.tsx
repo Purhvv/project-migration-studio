@@ -156,10 +156,9 @@ function FinishDrawer({ open, onClose, shift }: { open: boolean; onClose: () => 
   const [revenue, setRevenue] = useState("");
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const bp = num(basePay);
-    const tp = num(tips);
+    const completed: Shift = { ...shift, status: "completed", basePay: num(basePay), tips: num(tips), revenue: num(revenue) };
     guard.saveShift(
-      { ...shift, status: "completed", basePay: bp, tips: tp, revenue: num(revenue), earnings: bp === null ? null : bp + (tp ?? 0) },
+      { ...completed, earnings: computeEarnings(completed) },
       () => { toast("Смена завершена"); onClose(); },
     );
   };

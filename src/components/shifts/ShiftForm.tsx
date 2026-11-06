@@ -15,7 +15,7 @@ import { NumberInput } from "@/components/shared/NumberInput";
 import { useShiftSaveGuard } from "@/hooks/use-shift-save";
 import { useWorkplaces } from "@/data/queries";
 import { formatHours, parseNumberInput, shiftMinutes } from "@/lib/format";
-import { reconcileConfirmedEdit } from "@/lib/shift-management";
+import { computeEarnings, reconcileConfirmedEdit } from "@/lib/shift-management";
 import { STATUS_META } from "@/components/shifts/shift-ui";
 import type { Shift, ShiftStatus } from "@/lib/types";
 
