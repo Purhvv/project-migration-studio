@@ -75,7 +75,7 @@ export function buildMockShifts(today = new Date()): Shift[] {
     const penalties = completed && i % 7 === 3 ? [{ id: `p${i}`, label: "Опоздание", amount: 500 }] : [];
     const unknownTips = completed && i === 13;
     const earnings = completed
-      ? basePay + (unknownTips ? 0 : tips) + bonuses.reduce((s, b) => s + (b.amount ?? 0), 0) - penalties.reduce((s, p) => s + (p.amount ?? 0), 0)
+      ? computeEarnings({ basePay, tips: unknownTips ? null : tips, bonuses, penalties })
       : null;
     return {
       id: `s${i + 1}`,
