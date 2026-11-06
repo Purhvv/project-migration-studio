@@ -90,6 +90,7 @@ function ProfilePage() {
           </Panel>
         </Section>
       ))}
+      <Section><Button asChild variant="ghost" className="w-full justify-start gap-3 px-4"><Link to="/profile/trash"><Trash2 className="size-5 text-muted-foreground" /><span className="flex-1 text-left">Корзина</span><NavChevron /></Link></Button></Section>
 
       <Drawer open={!!open} onOpenChange={(o) => !o && setOpen(null)}>
         <DrawerContent>

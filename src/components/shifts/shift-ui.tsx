@@ -6,6 +6,7 @@ import { capitalize, fmtDate, formatHours, shiftMinutes } from "@/lib/format";
 import type { Shift, ShiftStatus, Workplace, WorkplaceColor } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Money, NavChevron } from "@/components/shared/primitives";
+import { ShiftActions } from "@/components/shifts/ShiftActions";
 
 export const WORKPLACE_COLORS: Array<{ value: WorkplaceColor; label: string }> = [
   { value: "sky", label: "Голубой" },
@@ -54,10 +55,10 @@ export function StatusBadge({ status }: { status: ShiftStatus }) {
 export function ShiftRow({ shift, showDate = true }: { shift: Shift; showDate?: boolean }) {
   const wp = useWorkplaceMap().get(shift.workplaceId);
   return (
-    <Link
+    <div className="flex min-w-0 items-center gap-1"><Link
       to="/shifts/$id"
       params={{ id: shift.id }}
-      className={cn("flex items-center gap-3 py-3.5 transition-colors active:opacity-70", shift.status === "cancelled" && "opacity-60")}
+      className={cn("flex min-w-0 flex-1 items-center gap-3 py-3.5 transition-colors active:opacity-70", shift.status === "cancelled" && "opacity-60")}
     >
       {showDate && (
         <div className="grid w-11 shrink-0 place-items-center rounded-xl bg-secondary py-1.5 text-center leading-tight">
@@ -82,7 +83,7 @@ export function ShiftRow({ shift, showDate = true }: { shift: Shift; showDate?: 
         )}
       </div>
       <NavChevron />
-    </Link>
+    </Link><ShiftActions shift={shift} /></div>
   );
 }
 
