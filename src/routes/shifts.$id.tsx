@@ -90,7 +90,7 @@ function ShiftDetails() {
           {shift.status === "completed" && (
             <Section title="Детали">
               <Panel className="divide-y text-sm">
-                <Row label="Личная выручка" node={<Money value={shift.revenue} />} />
+                <Row label={`Личная выручка · ${workplace?.name ?? "Место работы"}`} node={<Money value={shift.revenue} />} />
                 <Row label="Ставка" node={<Money value={shift.basePay} />} />
                 <Row label="Личные чаевые" node={<Money value={shift.tips} />} />
                 {shift.bonuses.map((b) => <Row key={b.id} label={b.label} node={<Money value={b.amount} tone="positive" sign="+" />} />)}
@@ -110,9 +110,9 @@ function ShiftDetails() {
 
 function Row({ label, node }: { label: string; node: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{node}</span>
+    <div className="flex items-start justify-between gap-3 px-4 py-3">
+      <span className="min-w-0 text-muted-foreground">{label}</span>
+      <span className="shrink-0 font-medium">{node}</span>
     </div>
   );
 }
