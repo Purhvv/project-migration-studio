@@ -11,6 +11,7 @@ import { RateEstimate } from "@/components/shifts/estimate";
 import { NumberInput } from "@/components/shared/NumberInput";
 import { ConflictWarning } from "@/components/shifts/ConflictWarning";
 import { useShiftSaveGuard } from "@/hooks/use-shift-save";
+import { computeEarnings } from "@/lib/shift-management";
 import { isUpcoming } from "@/lib/rates";
 import type { Shift, Workplace } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
