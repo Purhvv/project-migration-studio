@@ -20,13 +20,14 @@ export interface Summary {
 
 /** Aggregates backend-provided values of completed shifts (no financial rules applied). */
 export function summarize(shifts: Shift[]): Summary {
-  const done = shifts.filter((s) => s.status === "completed");
+  const done = shifts.filter((s) => !s.deletedAt && s.status === "completed");
   return {
     shifts: done.length,
     minutes: done.reduce((a, s) => a + shiftMinutes(s.start, s.end), 0),
     earnings: sumKnown(done.map((s) => s.earnings)),
     tips: sumKnown(done.map((s) => s.tips)),
-    revenue: sumKnown(done.map((s) => s.revenue)),
+    // Legacy single-workplace callers only; never construct a cross-workplace total.
+    revenue: new Set(done.map((s) => s.workplaceId)).size > 1 ? { value: null, partial: true } : sumKnown(done.map((s) => s.revenue)),
     bonuses: sumKnown(done.flatMap((s) => s.bonuses.map((b) => b.amount)), true),
     penalties: sumKnown(done.flatMap((s) => s.penalties.map((b) => b.amount)), true),
   };

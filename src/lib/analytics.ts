@@ -14,10 +14,10 @@ export function chartSeries(shifts: Shift[], monthly: boolean) {
     key,
     label: format(parseISO(list[0]?.date ?? key + "-01"), monthly ? "LLL yyyy" : "d MMM, EEE", { locale: ru }),
     earnings: sumKnown(list.map((s) => s.earnings)).value,
-    revenue: sumKnown(list.map((s) => s.revenue)).value,
+    revenue: new Set(list.map((s) => s.workplaceId)).size > 1 ? null : sumKnown(list.map((s) => s.revenue)).value,
     partial: list.some((s) => s.earnings === null || s.revenue === null),
     earningsPartial: list.some((s) => s.earnings === null),
-    revenuePartial: list.some((s) => s.revenue === null),
+    revenuePartial: new Set(list.map((s) => s.workplaceId)).size > 1 || list.some((s) => s.revenue === null),
     shifts: list.length,
     minutes: list.reduce((a, s) => a + shiftMinutes(s.start, s.end), 0),
   }));
