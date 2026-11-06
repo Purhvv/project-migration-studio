@@ -12,9 +12,10 @@ import { GoalDrawer, type GoalField } from "@/components/shared/GoalDrawer";
 import { Chips, EmptyState, ErrorState, Money, PageHeader, Panel, Section } from "@/components/shared/primitives";
 import { WorkplaceFilter } from "@/components/shared/WorkplaceFilter";
 import { shiftDayLabel, useWorkplaceMap } from "@/components/shifts/shift-ui";
-import { useProfile, useShifts } from "@/data/queries";
+import { useProfile, useShifts, useWorkplaces } from "@/data/queries";
 import { fmtDate, formatHours, formatMoney, formatNumber } from "@/lib/format";
 import { adjustmentHistory, chartSeries, goalProgress, incomeStructure, weekdaySeries } from "@/lib/analytics";
+import { forecast } from "@/lib/rates";
 import { summarize } from "@/lib/summary";
 import type { Shift } from "@/lib/types";
 
@@ -57,16 +58,18 @@ function StatsPage() {
       {period === "custom" && <div className="grid grid-cols-2 gap-2"><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="С" /><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="По" /></div>}
       <WorkplaceFilter value={wp} onChange={setWp} />
     </Section>
-    {shifts.isPending ? <Section><Skeleton className="h-40 rounded-3xl" /></Section> : shifts.isError ? <Section><ErrorState onRetry={() => shifts.refetch()} /></Section> : invalid ? <Section><p className="text-sm text-muted-foreground">{from && to ? "Начало периода должно быть не позже окончания." : "Выберите начало и окончание периода."}</p></Section> : <StatsBody shifts={filtered} monthly={period === "year" || period === "all" || (period === "custom" && to.slice(0, 7) !== from.slice(0, 7))} />}
+    {shifts.isPending ? <Section><Skeleton className="h-40 rounded-3xl" /></Section> : shifts.isError ? <Section><ErrorState onRetry={() => shifts.refetch()} /></Section> : invalid ? <Section><p className="text-sm text-muted-foreground">{from && to ? "Начало периода должно быть не позже окончания." : "Выберите начало и окончание периода."}</p></Section> : <StatsBody shifts={filtered} workplace={wp} allShifts={shifts.data ?? []} monthly={period === "year" || period === "all" || (period === "custom" && to.slice(0, 7) !== from.slice(0, 7))} />}
   </div>;
 }
-function StatsBody({ shifts, monthly }: { shifts: Shift[]; monthly: boolean }) {
+function StatsBody({ shifts, monthly, allShifts, workplace }: { shifts: Shift[]; monthly: boolean; allShifts: Shift[]; workplace: string }) {
   const s = summarize(shifts);
   const wpMap = useWorkplaceMap();
   const [history, setHistory] = useState<"bonuses" | "penalties" | null>(null);
   const series = useMemo(() => chartSeries(shifts, monthly), [shifts, monthly]);
   const weekday = useMemo(() => weekdaySeries(shifts), [shifts]);
   const structure = incomeStructure(shifts);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const dayDetail = weekday.find((x) => x.label === selectedDay);
   const slices = structure.rows.filter((x) => x.value !== null && x.value > 0);
   const ranked = shifts.filter((x): x is Shift & { earnings: number } => x.earnings !== null).sort((a, b) => b.earnings - a.earnings);
   return <div className="space-y-8">
@@ -87,28 +90,30 @@ function StatsBody({ shifts, monthly }: { shifts: Shift[]; monthly: boolean }) {
     <Section title="Динамика личной выручки"><TrendChart data={series} field="revenue" title="Личная выручка" /></Section>
     <Section title="Структура дохода"><Panel className="p-4">
       <p className="text-xs text-muted-foreground">Подтверждённые начисления за выбранный период. Доли — от положительных начислений до вычетов.</p>
-      {slices.length > 0 && <div className="mx-auto my-3 h-36 w-36"><ResponsiveContainer><PieChart><Pie data={slices} dataKey="value" innerRadius={40} outerRadius={65} stroke="none" paddingAngle={2}>{slices.map((x) => <Cell key={x.name} fill={x.color} />)}</Pie></PieChart></ResponsiveContainer></div>}
+      {slices.length > 0 && <div className="mx-auto my-3 h-36 w-36"><ResponsiveContainer><PieChart><Pie data={slices} dataKey="value" innerRadius={40} outerRadius={65} stroke="none" paddingAngle={2}>{slices.map((x) => <Cell key={x.name} fill={x.color} />)}</Pie><Tooltip trigger="click" formatter={(value: number, name: string) => [formatMoney(value), name]} contentStyle={{ background: "var(--popover)", borderColor: "var(--border)", color: "var(--foreground)" }} /></PieChart></ResponsiveContainer></div>}
       <dl className="mt-3 space-y-3 text-sm">
         {structure.rows.map((x) => <div key={x.name} className="flex items-start justify-between gap-3"><dt className="min-w-0 text-muted-foreground">{x.name}</dt><dd className="shrink-0 text-right"><Money value={x.value} /><p className="text-xs text-muted-foreground">{x.value !== null && structure.gross > 0 && !structure.incomplete && !structure.remainder ? `${formatNumber(x.value / structure.gross * 100, 1)}%` : ""}</p></dd></div>)}
         <div className="flex justify-between gap-3"><dt>Штрафы — вычет</dt><dd><Money value={structure.penalties.value} tone="negative" sign="−" partial={structure.penalties.partial} /></dd></div>
         {structure.remainder !== null && structure.remainder !== 0 && <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Нераспределённые начисления</dt><dd><Money value={structure.remainder} /></dd></div>}
         <div className="flex justify-between gap-3 border-t pt-3 font-semibold"><dt>Итого</dt><dd><Money value={structure.total} /></dd></div>
       </dl>
-      {(structure.excluded > 0 || structure.incomplete || structure.remainder) ? <p className="mt-3 text-xs text-muted-foreground">Детализация неполная: {structure.excluded > 0 ? `${formatNumber(structure.excluded)} смен без итоговой суммы не включены. ` : ""}Процент от выручки не выделен в текущих начислениях; он не рассчитывается из выручки.</p> : null}
+      {(structure.excluded > 0 || structure.incomplete || structure.remainder) ? <p className="mt-3 text-xs text-muted-foreground">Детализация неполная: {structure.excluded > 0 ? `${formatNumber(structure.excluded)} смен без итоговой суммы не включены. ` : ""}Неизвестные составляющие показаны знаком «—»; остаток сверяет известные начисления с итогом. Процент не рассчитывается из выручки.</p> : null}
     </Panel></Section>
     <Section title="Эффективность по дням недели"><Panel className="p-4">
       <p className="mb-3 text-sm text-muted-foreground">Средний заработок за час · ₽/ч</p>
       <div className="overflow-x-auto"><div className="min-w-[420px]"><ResponsiveContainer width="100%" height={210}><BarChart data={weekday} margin={{ top: 28, right: 15, bottom: 5, left: 0 }}>
         <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} /><YAxis width={55} tickFormatter={(v) => formatNumber(v)} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />
-        <Tooltip content={<DetailTooltip weekday />} cursor={{ fill: "var(--muted)" }} />
-        <Bar dataKey="value" fill="var(--chart-2)" radius={[5, 5, 0, 0]}><LabelList dataKey="value" position="top" formatter={(v: unknown) => typeof v === "number" ? formatNumber(v) : "—"} fill="var(--foreground)" fontSize={11} /></Bar>
+        <Tooltip trigger="click" content={<DetailTooltip weekday />} cursor={{ fill: "var(--muted)" }} />
+        <Bar dataKey="value" onClick={(entry) => setSelectedDay(entry.label)} fill="var(--chart-2)" radius={[5, 5, 0, 0]}><LabelList dataKey="value" position="top" formatter={(v: unknown) => typeof v === "number" ? formatNumber(v) : "—"} fill="var(--foreground)" fontSize={11} /></Bar>
       </BarChart></ResponsiveContainer></div></div>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">{weekday.filter((x) => x.value === null).map((x) => <span key={x.label}>{x.label}: {x.shifts ? "сумма неизвестна" : "нет смен"}</span>)}</div>
-      <details className="mt-3 text-sm"><summary className="cursor-pointer text-primary">Данные по дням недели</summary><div className="mt-2 divide-y">{weekday.map((x) => <div key={x.label} className="py-2"><p className="font-medium">{x.label} · {x.value === null ? "—" : `${formatMoney(x.value)} / ч`}</p><p className="text-xs text-muted-foreground">{formatNumber(x.shifts)} смен · {formatHours(x.minutes)} · {formatMoney(x.earnings)}{x.partial ? " · часть сумм неизвестна" : ""}</p></div>)}</div></details>
+      <div className="mt-3 grid grid-cols-7 gap-1" aria-label="Выбрать день недели">{weekday.map((x) => <Button key={x.label} size="sm" variant={selectedDay === x.label ? "secondary" : "ghost"} className="min-w-0 px-0" aria-pressed={selectedDay === x.label} onClick={() => setSelectedDay(x.label)}>{x.label}</Button>)}</div>
+      {dayDetail && <div role="status" className="mt-3 border-t pt-3 text-sm"><p className="font-medium">{dayDetail.label} · Средний заработок за час: {formatMoney(dayDetail.value)}</p><p className="mt-1 text-xs text-muted-foreground">{formatNumber(dayDetail.shifts)} смен · {formatHours(dayDetail.minutes)} · Всего: {formatMoney(dayDetail.earnings)}{dayDetail.partial ? " · часть сумм неизвестна" : ""}</p></div>}
+
     </Panel></Section>
     <Section title="Самая прибыльная смена"><RankedShift shift={ranked[0]} best /></Section>
     <Section title="Наименее прибыльная смена"><RankedShift shift={ranked[ranked.length - 1]} /></Section>
-    <Section title="Прогноз до конца месяца"><Panel className="flex items-start gap-3 p-4"><TrendingUp className="size-5 shrink-0 text-muted-foreground" /><p className="text-sm text-muted-foreground">Полный прогноз недоступен: процент от выручки и будущие чаевые не определены. На главной доступна предварительная сумма только по настроенным ставкам.</p></Panel></Section>
+    <MonthForecast shifts={allShifts} workplace={workplace} />
     <Section title="Другие показатели"><div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border bg-border">
       <Tile label="За смену" node={<Money value={s.earnings.value === null ? null : Math.round(s.earnings.value / Math.max(1, shifts.filter((x) => x.earnings !== null).length))} />} />
       <Tile label="За час" node={<Money value={s.earnings.value === null ? null : Math.round(s.earnings.value / Math.max(1, summarize(shifts.filter((x) => x.earnings !== null)).minutes / 60))} />} />
@@ -122,6 +127,19 @@ function StatsBody({ shifts, monthly }: { shifts: Shift[]; monthly: boolean }) {
       <div className="overflow-y-auto px-4 pb-8">{history && (adjustmentHistory(shifts, history).length ? <div className="divide-y">{adjustmentHistory(shifts, history).map(({ shift, operation }) => <Link key={shift.id + operation.id} to="/shifts/$id" params={{ id: shift.id }} onClick={() => setHistory(null)} className="block space-y-1 py-3"><div className="flex justify-between gap-3"><p className="font-medium">{fmtDate(shift.date, "dd.MM.yyyy")}</p><Money value={operation.amount} tone={history === "bonuses" ? "positive" : "negative"} sign={history === "bonuses" ? "+" : "−"} /></div><p className="text-sm">{wpMap.get(shift.workplaceId)?.name ?? "Место работы не найдено"}</p><p className="text-xs text-muted-foreground">{shift.start}–{shift.end} · {formatHours(summarize([shift]).minutes)}</p><p className="text-sm">{operation.label || "Без причины"}</p>{shift.comment && <p className="text-xs text-muted-foreground">{shift.comment}</p>}</Link>)}</div> : <p className="py-6 text-center text-muted-foreground">Нет записей за выбранный период</p>)}</div>
     </DrawerContent></Drawer>
   </div>;
+}
+function MonthForecast({ shifts, workplace }: { shifts: Shift[]; workplace: string }) {
+  const { data: workplaces } = useWorkplaces();
+  const month = format(new Date(), "yyyy-MM");
+  const current = shifts.filter((x) => x.date.startsWith(month) && (workplace === "all" || x.workplaceId === workplace));
+  const actual = summarize(current).earnings;
+  const estimate = forecast(current, workplaces ?? [], actual);
+  return <Section title="Прогноз до конца месяца"><Panel className="p-4">
+    <p className="text-xs text-muted-foreground">Текущий месяц · выбранное место работы</p>
+    <p className="mt-2 flex items-center gap-2 font-semibold"><TrendingUp className="size-4 text-primary" /><Money value={estimate.total} partial={actual.partial || estimate.missing > 0 || estimate.uncovered > 0} /></p>
+    <dl className="mt-3 space-y-2 text-sm"><div className="flex justify-between gap-3"><dt className="text-muted-foreground">Подтверждённый заработок</dt><dd><Money value={actual.value} partial={actual.partial} /></dd></div><div className="flex justify-between gap-3"><dt className="text-muted-foreground">Предстоящие смены по ставкам</dt><dd><Money value={estimate.upcoming - estimate.missing > 0 ? estimate.estimated : null} /></dd></div></dl>
+    <p className="mt-3 text-xs text-muted-foreground">{estimate.upcoming ? `${formatNumber(estimate.upcoming - estimate.missing)} из ${formatNumber(estimate.upcoming)} незавершённых смен учтены по ставкам. ` : "Нет незавершённых смен в текущем месяце. "}{estimate.missing > 0 ? "Смены без ставок не учтены. " : ""}{estimate.uncovered > 0 ? "Часть часов не покрыта ставками. " : ""}Предварительная сумма, без будущих чаевых, процента, премий и штрафов.</p>
+  </Panel></Section>;
 }
 function FinancialGoals({ shifts }: { shifts: Shift[] }) {
   const { data: p } = useProfile();
@@ -141,18 +159,21 @@ function FinancialGoals({ shifts }: { shifts: Shift[] }) {
   </Panel><GoalDrawer open={current !== undefined} field={current?.field ?? "monthlyGoal"} title={current?.label ?? ""} value={current?.target ?? null} onClose={() => setEdit(null)} /></Section>;
 }
 function TrendChart({ data, field, title }: { data: ReturnType<typeof chartSeries>; field: "earnings" | "revenue"; title: string }) {
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   if (!data.length || data.every((x) => x[field] === null)) return <Panel className="p-5 text-sm text-muted-foreground">{data.length ? "Суммы за выбранный период пока неизвестны" : "Нет данных за выбранный период"}</Panel>;
-  const width = Math.max(300, data.length * 100);
-  const axis = <><XAxis dataKey="label" interval={0} tickLine={false} axisLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} /><YAxis width={65} tickFormatter={(v) => formatNumber(v)} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip content={<DetailTooltip field={field} />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} /></>;
-  return <Panel className="p-3"><p className="mb-3 text-xs text-muted-foreground">{title} за дату / период · ₽</p><div className="overflow-x-auto"><div style={{ width, minWidth: "100%" }}><ResponsiveContainer width="100%" height={230}>{field === "earnings" ? <BarChart data={data} margin={{ top: 30, right: 25, bottom: 5, left: 0 }}>{axis}<Bar dataKey={field} fill="var(--chart-1)" radius={[5, 5, 0, 0]}><LabelList dataKey={field} position="top" formatter={(v: unknown) => typeof v === "number" ? formatNumber(v) : "—"} fill="var(--foreground)" fontSize={11} /></Bar></BarChart> : <AreaChart data={data} margin={{ top: 30, right: 25, bottom: 5, left: 0 }}>{axis}<Area dataKey={field} type="linear" stroke="var(--chart-2)" fill="var(--chart-2)" fillOpacity={0.15} dot={{ r: 4, fill: "var(--chart-2)" }} connectNulls={false}><LabelList dataKey={field} position="top" formatter={(v: unknown) => typeof v === "number" ? formatNumber(v) : "—"} fill="var(--foreground)" fontSize={11} /></Area></AreaChart>}</ResponsiveContainer></div></div>
-    <details className="mt-2 text-sm"><summary className="cursor-pointer text-primary">Значения за период</summary><div className="mt-2 divide-y">{data.map((x) => <div key={x.key} className="flex justify-between gap-3 py-2"><span className="text-muted-foreground">{x.label}</span><Money value={x[field]} /></div>)}</div></details>
+  const selected = data.find((x) => x.key === selectedKey);
+  const width = Math.max(300, data.length * 115);
+  const axis = <><XAxis dataKey="label" interval={0} tickLine={false} axisLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} /><YAxis width={65} tickFormatter={(v) => formatNumber(v)} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip trigger="click" content={<DetailTooltip field={field} />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} /></>;
+  return <Panel className="p-3"><p className="mb-3 text-xs text-muted-foreground">{title} за дату / период · ₽</p><div className="overflow-x-auto"><div style={{ width, minWidth: "100%" }}><ResponsiveContainer width="100%" height={230}>{field === "earnings" ? <BarChart data={data} margin={{ top: 30, right: 25, bottom: 5, left: 0 }}>{axis}<Bar dataKey={field} onClick={(entry) => setSelectedKey(entry.key)} fill="var(--chart-1)" radius={[5, 5, 0, 0]}><LabelList dataKey={field} position="top" formatter={(v: unknown) => typeof v === "number" ? formatNumber(v) : "—"} fill="var(--foreground)" fontSize={11} /></Bar></BarChart> : <AreaChart data={data} onClick={(event) => { const key = event?.activePayload?.[0]?.payload.key; if (typeof key === "string") setSelectedKey(key); }} margin={{ top: 30, right: 25, bottom: 5, left: 0 }}>{axis}<Area dataKey={field} type="linear" stroke="var(--chart-2)" fill="var(--chart-2)" fillOpacity={0.15} dot={{ r: 4, fill: "var(--chart-2)" }} onClick={(event: { activePayload?: Array<{ payload: { key: string } }> }) => { const key = event.activePayload?.[0]?.payload.key; if (key) setSelectedKey(key); }} connectNulls={false}><LabelList dataKey={field} position="top" formatter={(v: unknown) => typeof v === "number" ? formatNumber(v) : "—"} fill="var(--foreground)" fontSize={11} /></Area></AreaChart>}</ResponsiveContainer></div></div>
+    {selected && <div role="status" className="mt-3 border-t pt-3 text-sm"><p className="font-medium">{selected.label} · {title}: <Money value={selected[field]} partial={field === "earnings" ? selected.earningsPartial : selected.revenuePartial} /></p><p className="mt-1 text-xs text-muted-foreground">{formatNumber(selected.shifts)} смен · {formatHours(selected.minutes)}</p></div>}
+    <details className="mt-2 text-sm"><summary className="cursor-pointer text-primary">Значения за период</summary><div className="mt-2 divide-y">{data.map((x) => <Button key={x.key} variant="ghost" className="h-auto w-full justify-between gap-3 whitespace-normal py-2 text-left" onClick={() => setSelectedKey(x.key)}><span className="text-muted-foreground">{x.label}</span><Money value={x[field]} partial={field === "earnings" ? x.earningsPartial : x.revenuePartial} /></Button>)}</div></details>
   </Panel>;
 }
 function DetailTooltip({ active, payload, field = "earnings", weekday = false }: { active?: boolean; payload?: Array<{ payload: Record<string, unknown> }>; field?: string; weekday?: boolean }) {
   const x = payload?.[0]?.payload;
   if (!active || !x) return null;
   const value = weekday ? x['value'] : x[field];
-  return <div className="max-w-60 rounded-lg border bg-popover p-3 text-xs text-popover-foreground shadow-card"><p className="font-semibold">{String(x['label'])}</p><p className="mt-1">{weekday ? "Средний заработок за час" : field === "revenue" ? "Личная выручка" : "Заработок"}: {formatMoney(typeof value === "number" ? value : null)}</p><p>{formatNumber(Number(x['shifts']))} смен · {formatHours(Number(x['minutes']))}</p>{weekday && <p>Всего: {formatMoney(typeof x['earnings'] === "number" ? x['earnings'] : null)}</p>}{x['partial'] ? <p className="mt-1 text-muted-foreground">Часть сумм неизвестна</p> : null}</div>;
+  return <div className="max-w-60 rounded-lg border bg-popover p-3 text-xs text-popover-foreground shadow-card"><p className="font-semibold">{String(x['label'])}</p><p className="mt-1">{weekday ? "Средний заработок за час" : field === "revenue" ? "Личная выручка" : "Заработок"}: {formatMoney(typeof value === "number" ? value : null)}</p><p>{formatNumber(Number(x['shifts']))} смен · {formatHours(Number(x['minutes']))}</p>{weekday && <p>Всего: {formatMoney(typeof x['earnings'] === "number" ? x['earnings'] : null)}</p>}{(weekday ? x['partial'] : field === 'earnings' ? x['earningsPartial'] : x['revenuePartial']) ? <p className="mt-1 text-muted-foreground">Часть сумм неизвестна</p> : null}</div>;
 }
 function RankedShift({ shift, best = false }: { shift: Shift | undefined; best?: boolean }) {
   const map = useWorkplaceMap(); const Icon = best ? Trophy : TrendingDown;
