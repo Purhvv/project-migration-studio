@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { endOfMonth, endOfWeek, endOfYear, format, isWithinInterval, parseISO, startOfMonth, startOfWeek, startOfYear } from "date-fns";
 import { BarChart3, Pencil, TrendingUp, Trophy, TrendingDown } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Area, AreaChart, Bar, BarChart, Cell, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, Cell, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -10,6 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { GoalDrawer, type GoalField } from "@/components/shared/GoalDrawer";
 import { Chips, EmptyState, ErrorState, Money, PageHeader, Panel, Section } from "@/components/shared/primitives";
+import { WorkplaceRevenue } from "@/components/shared/WorkplaceRevenue";
+import { RevenueChart } from "@/components/shared/RevenueChart";
 import { WorkplaceFilter } from "@/components/shared/WorkplaceFilter";
 import { shiftDayLabel, useWorkplaceMap } from "@/components/shifts/shift-ui";
 import { useProfile, useShifts, useWorkplaces } from "@/data/queries";
@@ -80,14 +82,14 @@ function StatsBody({ shifts, monthly, allShifts, workplace }: { shifts: Shift[];
       <dl className="mt-5 grid grid-cols-2 gap-4 border-t pt-4">
         <Metric label="Часы" node={shifts.length ? formatHours(s.minutes) : "—"} />
         <Metric label="Смены" node={formatNumber(s.shifts)} />
-        <Metric label="Личная выручка" node={<Money value={s.revenue.value} partial={s.revenue.partial} />} />
         <Metric label="Личные чаевые" node={<Money value={s.tips.value} partial={s.tips.partial} />} />
       </dl>
     </div></Section>
-    <FinancialGoals shifts={shifts} />
+    <FinancialGoals shifts={allShifts.filter((s) => workplace === "all" || s.workplaceId === workplace)} workplace={workplace} />
+    <Section title="Личная выручка за период"><WorkplaceRevenue shifts={shifts} selected={workplace} averages /></Section>
     {shifts.length === 0 && <Section><EmptyState icon={BarChart3} title="Нет данных за период" text="Нет завершённых смен за выбранный период" action={<Button asChild><Link to="/shifts/new">Добавить смену</Link></Button>} /></Section>}
     <Section title="Динамика заработка"><TrendChart data={series} field="earnings" title="Заработок" /></Section>
-    <Section title="Динамика личной выручки"><TrendChart data={series} field="revenue" title="Личная выручка" /></Section>
+    <Section title="Динамика личной выручки"><RevenueChart shifts={shifts} selected={workplace} monthly={monthly} /></Section>
     <Section title="Структура дохода"><Panel className="p-4">
       <p className="text-xs text-muted-foreground">Подтверждённые начисления за выбранный период. Доли — от положительных начислений до вычетов.</p>
       {slices.length > 0 && <div className="mx-auto my-3 h-36 w-36"><ResponsiveContainer><PieChart><Pie data={slices} dataKey="value" innerRadius={40} outerRadius={65} stroke="none" paddingAngle={2}>{slices.map((x) => <Cell key={x.name} fill={x.color} />)}</Pie><Tooltip trigger="click" formatter={(value: number, name: string) => [formatMoney(value), name]} contentStyle={{ background: "var(--popover)", borderColor: "var(--border)", color: "var(--foreground)" }} /></PieChart></ResponsiveContainer></div>}
@@ -141,7 +143,7 @@ function MonthForecast({ shifts, workplace }: { shifts: Shift[]; workplace: stri
     <p className="mt-3 text-xs text-muted-foreground">{estimate.upcoming ? `${formatNumber(estimate.upcoming - estimate.missing)} из ${formatNumber(estimate.upcoming)} незавершённых смен учтены по ставкам. ` : "Нет незавершённых смен в текущем месяце. "}{estimate.missing > 0 ? "Смены без ставок не учтены. " : ""}{estimate.uncovered > 0 ? "Часть часов не покрыта ставками. " : ""}Предварительная сумма, без будущих чаевых, процента, премий и штрафов.</p>
   </Panel></Section>;
 }
-function FinancialGoals({ shifts }: { shifts: Shift[] }) {
+function FinancialGoals({ shifts, workplace }: { shifts: Shift[]; workplace: string }) {
   const { data: p } = useProfile();
   const [edit, setEdit] = useState<GoalField | null>(null);
   const month = format(new Date(), "yyyy-MM");
@@ -150,23 +152,20 @@ function FinancialGoals({ shifts }: { shifts: Shift[] }) {
     { field: "monthlyGoal" as const, label: "Месячный заработок", current: s.earnings.value, target: p?.monthlyGoal ?? null, money: true },
     { field: "hoursGoal" as const, label: "Отработанные часы", current: s.minutes / 60, target: p?.hoursGoal ?? null, money: false },
     { field: "shiftsGoal" as const, label: "Количество смен", current: s.shifts, target: p?.shiftsGoal ?? null, money: false },
-    { field: "revenueGoal" as const, label: "Личная выручка", current: s.revenue.value, target: p?.revenueGoal ?? null, money: true },
   ];
   const current = rows.find((r) => r.field === edit);
   return <Section title="Финансовые цели"><Panel className="divide-y px-4">
     <p className="py-3 text-xs text-muted-foreground">Текущий месяц · завершённые смены в выбранном периоде и месте работы. Часы — ориентир, не поощрение переработок.</p>
     {rows.map((r) => { const progress = goalProgress(r.current, r.target); const fmt = (value: number | null) => r.money ? formatMoney(value) : formatNumber(value); return <div key={r.field} className="py-3"><div className="flex items-center justify-between gap-2"><p className="text-sm font-medium">{r.label}</p><Button size="icon" variant="ghost" className="size-8 shrink-0 text-primary" aria-label={`Изменить: ${r.label}`} onClick={() => setEdit(r.field)}><Pencil className="size-4" /></Button></div><p className="text-sm tabular">{fmt(r.current)} <span className="text-muted-foreground">/ {fmt(r.target)}</span></p><Progress className="mt-2 h-2" value={progress ? Math.min(100, progress.percent) : 0} /><p className="mt-2 text-xs text-muted-foreground">{!r.target ? "Цель не задана" : !progress ? "Текущий результат неизвестен" : `${formatNumber(progress.percent)}% · ${progress.remaining === 0 ? (r.field === "hoursGoal" ? "Ориентир достигнут" : "Цель выполнена") : `Осталось ${fmt(progress.remaining)}`}`}</p></div>; })}
-  </Panel><GoalDrawer open={current !== undefined} field={current?.field ?? "monthlyGoal"} title={current?.label ?? ""} value={current?.target ?? null} onClose={() => setEdit(null)} /></Section>;
+  </Panel><div className="mt-3"><WorkplaceRevenue shifts={shifts.filter((s) => s.date.startsWith(month))} selected={workplace} /></div><GoalDrawer open={current !== undefined} field={current?.field ?? "monthlyGoal"} title={current?.label ?? ""} value={current?.target ?? null} onClose={() => setEdit(null)} /></Section>;
 }
-function TrendChart({ data, field, title }: { data: ReturnType<typeof chartSeries>; field: "earnings" | "revenue"; title: string }) {
+function TrendChart({ data, title }: { data: ReturnType<typeof chartSeries>; field: "earnings"; title: string }) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  if (!data.length || data.every((x) => x[field] === null)) return <Panel className="p-5 text-sm text-muted-foreground">{data.length ? "Суммы за выбранный период пока неизвестны" : "Нет данных за выбранный период"}</Panel>;
+  if (!data.length || data.every((x) => x.earnings === null)) return <Panel className="p-5 text-sm text-muted-foreground">{data.length ? "Суммы за выбранный период пока неизвестны" : "Нет данных за выбранный период"}</Panel>;
   const selected = data.find((x) => x.key === selectedKey);
-  const width = Math.max(300, data.length * 115);
-
-  return <Panel className="p-3"><p className="mb-3 text-xs text-muted-foreground">{title} за дату / период · ₽</p><div className="overflow-x-auto"><div style={{ width, minWidth: "100%" }}><ResponsiveContainer width="100%" height={230}>{field === "earnings" ? <BarChart data={data} margin={{ top: 30, right: 25, bottom: 5, left: 0 }}><XAxis key="x" dataKey="label" interval={0} tickLine={false} axisLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} /><YAxis key="y" width={65} tickFormatter={(v) => formatNumber(v)} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip key="tooltip" trigger="click" content={<DetailTooltip field={field} />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} /><Bar dataKey={field} onClick={(entry) => setSelectedKey(entry.key)} fill="var(--chart-1)" radius={[5, 5, 0, 0]}><LabelList dataKey={field} position="top" formatter={(v: unknown) => typeof v === "number" ? formatNumber(v) : "—"} fill="var(--foreground)" fontSize={11} /></Bar></BarChart> : <AreaChart data={data} onClick={(event) => { const key = event?.activePayload?.[0]?.payload.key; if (typeof key === "string") setSelectedKey(key); }} margin={{ top: 30, right: 25, bottom: 5, left: 0 }}><XAxis key="x" dataKey="label" interval={0} tickLine={false} axisLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} /><YAxis key="y" width={65} tickFormatter={(v) => formatNumber(v)} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip key="tooltip" trigger="click" content={<DetailTooltip field={field} />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} /><Area dataKey={field} type="linear" stroke="var(--chart-2)" fill="var(--chart-2)" fillOpacity={0.15} dot={{ r: 4, fill: "var(--chart-2)" }} connectNulls={false}><LabelList dataKey={field} position="top" formatter={(v: unknown) => typeof v === "number" ? formatNumber(v) : "—"} fill="var(--foreground)" fontSize={11} /></Area></AreaChart>}</ResponsiveContainer></div></div>
-    {selected && <div role="status" className="mt-3 border-t pt-3 text-sm"><p className="font-medium">{selected.label} · {title}: <Money value={selected[field]} partial={field === "earnings" ? selected.earningsPartial : selected.revenuePartial} /></p><p className="mt-1 text-xs text-muted-foreground">{formatNumber(selected.shifts)} смен · {formatHours(selected.minutes)}</p></div>}
-    <details className="mt-2 text-sm"><summary className="cursor-pointer text-primary">Значения за период</summary><div className="mt-2 divide-y">{data.map((x) => <Button key={x.key} variant="ghost" className="h-auto w-full justify-between gap-3 whitespace-normal py-2 text-left" onClick={() => setSelectedKey(x.key)}><span className="text-muted-foreground">{x.label}</span><Money value={x[field]} partial={field === "earnings" ? x.earningsPartial : x.revenuePartial} /></Button>)}</div></details>
+  return <Panel className="p-3"><p className="mb-3 text-xs text-muted-foreground">{title} за дату / период · ₽</p><div className="overflow-x-auto"><div style={{ width: Math.max(300, data.length * 115), minWidth: "100%" }}><ResponsiveContainer width="100%" height={230}><BarChart data={data} margin={{ top: 30, right: 25, bottom: 5, left: 0 }}><XAxis dataKey="label" interval={0} tickLine={false} axisLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} /><YAxis width={65} tickFormatter={(v) => formatNumber(v)} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip trigger="click" content={<DetailTooltip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} /><Bar dataKey="earnings" onClick={(entry) => setSelectedKey(entry.key)} fill="var(--chart-1)" radius={[5, 5, 0, 0]}><LabelList dataKey="earnings" position="top" formatter={(v: unknown) => typeof v === "number" ? formatNumber(v) : "—"} fill="var(--foreground)" fontSize={11} /></Bar></BarChart></ResponsiveContainer></div></div>
+    {selected && <div role="status" className="mt-3 border-t pt-3 text-sm"><p className="font-medium">{selected.label} · {title}: <Money value={selected.earnings} partial={selected.earningsPartial} /></p><p className="mt-1 text-xs text-muted-foreground">{formatNumber(selected.shifts)} смен · {formatHours(selected.minutes)}</p></div>}
+    <details className="mt-2 text-sm"><summary className="cursor-pointer text-primary">Значения за период</summary><div className="mt-2 divide-y">{data.map((x) => <Button key={x.key} variant="ghost" className="h-auto w-full justify-between gap-3 whitespace-normal py-2 text-left" onClick={() => setSelectedKey(x.key)}><span className="text-muted-foreground">{x.label}</span><Money value={x.earnings} partial={x.earningsPartial} /></Button>)}</div></details>
   </Panel>;
 }
 function DetailTooltip({ active, payload, field = "earnings", weekday = false }: { active?: boolean; payload?: Array<{ payload: Record<string, unknown> }>; field?: string; weekday?: boolean }) {
