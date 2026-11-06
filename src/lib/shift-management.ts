@@ -33,6 +33,21 @@ export function purgeShift(shifts: Shift[], id: string): void {
 export function clearTrash(shifts: Shift[]): void {
   for (let i = shifts.length - 1; i >= 0; i--) if (shifts[i]?.deletedAt) shifts.splice(i, 1);
 }
+/** Single earnings formula: basePay + commissionPay + tips + bonuses − penalties.
+ * A null component means unknown → the total is unknown (null), never treated as zero.
+ * Empty adjustment lists mean no accruals/deductions; undefined commissionPay means
+ * commission is not separately recorded and contributes nothing. */
+export function computeEarnings(s: Pick<Shift, "basePay" | "commissionPay" | "tips" | "bonuses" | "penalties">): number | null {
+  const parts: Array<number | null> = [
+    s.basePay,
+    s.commissionPay === undefined ? 0 : s.commissionPay,
+    s.tips,
+    ...s.bonuses.map((b) => b.amount),
+    ...s.penalties.map((p) => (p.amount === null ? null : -p.amount)),
+  ];
+  if (parts.some((p) => p === null)) return null;
+  return (parts as number[]).reduce((a, b) => a + b, 0);
+}
 /** Adjust only entered actual components; preserve the confirmed payroll remainder.
  * Never infer commission from revenue or actual hourly pay from today's rates. */
 export function reconcileConfirmedEdit(original: Shift | undefined, edited: Shift): Shift {

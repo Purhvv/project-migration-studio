@@ -15,7 +15,7 @@ import { NumberInput } from "@/components/shared/NumberInput";
 import { useShiftSaveGuard } from "@/hooks/use-shift-save";
 import { useWorkplaces } from "@/data/queries";
 import { formatHours, parseNumberInput, shiftMinutes } from "@/lib/format";
-import { reconcileConfirmedEdit } from "@/lib/shift-management";
+import { computeEarnings, reconcileConfirmedEdit } from "@/lib/shift-management";
 import { STATUS_META } from "@/components/shifts/shift-ui";
 import type { Shift, ShiftStatus } from "@/lib/types";
 
@@ -53,7 +53,11 @@ export function ShiftForm({ initial, initialDate, restoring = false, onSaved }: 
       earnings: num(earnings), bonuses: adj(bonuses), penalties: adj(penalties), comment: comment || undefined,
     };
     const enteredTotalChanged = num(earnings) !== (initial?.earnings ?? null);
-    const updated = enteredTotalChanged ? candidate : reconcileConfirmedEdit(initial, candidate);
+    const updated = enteredTotalChanged
+      ? candidate
+      : initial
+        ? reconcileConfirmedEdit(initial, candidate)
+        : { ...candidate, earnings: computeEarnings(candidate) };
     guard.saveShift(updated, () => {
       toast(initial ? "Смена обновлена" : "Смена сохранена", { description: "Демо-режим: данные хранятся до перезагрузки страницы." });
       if (onSaved) onSaved();

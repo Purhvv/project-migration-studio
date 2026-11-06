@@ -11,6 +11,7 @@ import { RateEstimate } from "@/components/shifts/estimate";
 import { NumberInput } from "@/components/shared/NumberInput";
 import { ConflictWarning } from "@/components/shifts/ConflictWarning";
 import { useShiftSaveGuard } from "@/hooks/use-shift-save";
+import { computeEarnings } from "@/lib/shift-management";
 import { isUpcoming } from "@/lib/rates";
 import type { Shift, Workplace } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -155,10 +156,9 @@ function FinishDrawer({ open, onClose, shift }: { open: boolean; onClose: () => 
   const [revenue, setRevenue] = useState("");
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const bp = num(basePay);
-    const tp = num(tips);
+    const completed: Shift = { ...shift, status: "completed", basePay: num(basePay), tips: num(tips), revenue: num(revenue) };
     guard.saveShift(
-      { ...shift, status: "completed", basePay: bp, tips: tp, revenue: num(revenue), earnings: bp === null ? null : bp + (tp ?? 0) },
+      { ...completed, earnings: computeEarnings(completed) },
       () => { toast("Смена завершена"); onClose(); },
     );
   };
