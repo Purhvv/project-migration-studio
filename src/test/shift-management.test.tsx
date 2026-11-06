@@ -113,7 +113,9 @@ describe("trash lifecycle", () => {
   it("invalidates active and trash query results after a delete", async () => {
     const { wrapper, client } = setup([sample()]); const { result } = renderHook(() => useTrashShift(), { wrapper });
     await act(() => result.current.mutateAsync("s1"));
-    expect(await client.fetchQuery(shiftsQuery)).toEqual([]); expect((await client.fetchQuery(trashQuery))[0]?.id).toBe("s1");
+    await act(async () => {
+      expect(await client.fetchQuery(shiftsQuery)).toEqual([]); expect((await client.fetchQuery(trashQuery))[0]?.id).toBe("s1");
+    });
   });
   it("ignores deleted shifts during active conflict checks", () => {
     const rows = [sample()]; moveToTrash(rows, "s1");

@@ -10,7 +10,7 @@
 <!-- LOVABLE:END -->
 
 - Screens read data only via `src/data/queries.ts` query options; mock data lives in `src/data/mock.ts` so Supabase can replace queryFns without touching screens.
-- Financial values are nullable (`null` = unknown) and must render as "—", never 0; actual earnings only sum confirmed values; the only client-side calculation is the hourly-rate estimate for not-yet-completed shifts in `src/lib/rates.ts` (no commission/tips/bonus forecasting) — keeps actual vs. preliminary from double counting.
+- Financial values are nullable (`null` = unknown) and must render as "—", never 0; actual earnings only sum confirmed values. Forecasts use only hourly-rate estimates in `src/lib/rates.ts`, never commission/tips/bonuses; editing confirmed components may reconcile their explicit deltas but never infer payroll from rates or revenue.
 - Calendar colour encodes the workplace only (`--wp-<key>` tokens); shift status is shown by neutral icons from `STATUS_META` — one visual channel per meaning.
 - Until Supabase, writes go to the in-memory `db` in `src/data/mock.ts` via mutation hooks in `src/data/queries.ts`.
 - Interactive shift writes use the shared save guard, including completion; conflicts require explicit override so create and edit follow the same rules.
