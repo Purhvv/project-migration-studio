@@ -150,7 +150,7 @@ function WorkplaceEditor({ initial, onDone }: { initial: Workplace | null; onDon
       onSubmit={(e) => {
         e.preventDefault();
         if (!name.trim()) return;
-        save.mutate({ id: initial?.id ?? `w${Date.now()}`, rates: initial?.rates ?? [], name: name.trim(), color }, { onSuccess: onDone });
+        save.mutate({ id: initial?.id ?? `w${Date.now()}`, rates: initial?.rates ?? [], revenueGoal: initial?.revenueGoal ?? null, name: name.trim(), color }, { onSuccess: onDone });
       }}
     >
       <div className="space-y-1.5">
@@ -237,10 +237,12 @@ function RatesPanel() {
 
 function GoalsPanel() {
   const { data: p } = useProfile();
+  const { data: workplaces } = useWorkplaces();
+  const [revenueEdit, setRevenueEdit] = useState<string | null>(null);
+  const revenueWorkplace = workplaces?.find((w) => w.id === revenueEdit);
   const [edit, setEdit] = useState<GoalField | null>(null);
   const rows = [
     { field: "monthlyGoal" as const, label: "Цель по заработку", value: p?.monthlyGoal ?? null },
-    { field: "revenueGoal" as const, label: "Цель по личной выручке", value: p?.revenueGoal ?? null },
     { field: "hoursGoal" as const, label: "Ориентир по часам", value: p?.hoursGoal ?? null },
     { field: "shiftsGoal" as const, label: "Цель по сменам", value: p?.shiftsGoal ?? null },
   ];
@@ -256,7 +258,9 @@ function GoalsPanel() {
           </button>
         ))}
       </Panel>
-      <p className="text-xs text-muted-foreground">Цели независимы друг от друга. Повышенный процент за выполнение плана появится позже.</p>
+      <p className="text-sm font-medium">Цели по личной выручке</p>
+      <Panel className="divide-y">{workplaces?.map((w) => <Button key={w.id} variant="ghost" className="h-auto w-full justify-start gap-3 whitespace-normal px-4 py-3 text-left" onClick={() => setRevenueEdit(w.id)}><WorkplaceDot color={w.color} /><span className="min-w-0 flex-1">{w.name}</span><Money value={w.revenueGoal ?? null} /><NavChevron /></Button>)}</Panel>
+      <GoalDrawer open={!!revenueWorkplace} field="revenueGoal" workplaceId={revenueWorkplace?.id} title={`Цель по выручке · ${revenueWorkplace?.name ?? ""}`} value={revenueWorkplace?.revenueGoal ?? null} onClose={() => setRevenueEdit(null)} />
       <GoalDrawer open={!!cur} onClose={() => setEdit(null)} field={cur?.field ?? "monthlyGoal"} title={cur?.label ?? ""} value={cur?.value ?? null} />
     </div>
   );

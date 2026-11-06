@@ -21,6 +21,8 @@ export interface Workplace {
   color: WorkplaceColor;
   /** Configured hourly rates; empty = not configured (no estimate possible). */
   rates: RateInterval[];
+  /** Independent monthly personal revenue target; null/absent = not set. */
+  revenueGoal?: number | null;
 }
 
 export interface Adjustment {
@@ -60,9 +62,6 @@ export interface UserProfile {
   currency: string;
   /** Monthly earnings goal; null = not set */
   monthlyGoal: number | null;
-  /** Monthly personal revenue goal, independent from monthlyGoal; null = not set.
-   *  Future: plan-based commission tiers can attach here. */
-  revenueGoal: number | null;
   hoursGoal?: number | null;
   shiftsGoal?: number | null;
 }

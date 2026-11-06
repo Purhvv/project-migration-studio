@@ -3,11 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { NumberInput } from "@/components/shared/NumberInput";
 import { parseNumberInput } from "@/lib/format";
-import { useUpdateProfile } from "@/data/queries";
+import { useUpdateProfile, useUpdateRevenueGoal } from "@/data/queries";
 
 export type GoalField = "revenueGoal" | "monthlyGoal" | "hoursGoal" | "shiftsGoal";
-export function GoalDrawer({ open, onClose, field, title, value }: { open: boolean; onClose: () => void; field: GoalField; title: string; value: number | null }) {
+export function GoalDrawer({ open, onClose, field, title, value, workplaceId }: { open: boolean; onClose: () => void; field: GoalField; title: string; value: number | null; workplaceId?: string | undefined }) {
   const update = useUpdateProfile();
+  const updateRevenue = useUpdateRevenueGoal();
   const [v, setV] = useState("");
   useEffect(() => { if (open) setV(value ? String(value) : ""); }, [open, value]);
   return (
@@ -19,7 +20,10 @@ export function GoalDrawer({ open, onClose, field, title, value }: { open: boole
             e.preventDefault();
             const n = parseNumberInput(v);
             if (v.trim() && (n === null || n <= 0 || (field === "shiftsGoal" && !Number.isInteger(n)))) return;
-            update.mutate({ [field]: n && n > 0 ? n : null }, { onSuccess: onClose });
+            if (field === "revenueGoal") {
+              if (!workplaceId) return;
+              updateRevenue.mutate({ workplaceId, value: n }, { onSuccess: onClose });
+            } else update.mutate({ [field]: n }, { onSuccess: onClose });
           }}
         >
           <DrawerHeader className="px-0 text-left">

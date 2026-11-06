@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Bell, CalendarPlus, Clock, MapPin, Pencil, Target } from "lucide-react";
+import { Bell, CalendarPlus, Clock, MapPin } from "lucide-react";
 import { format, isSameMonth, parseISO } from "date-fns";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { GoalDrawer } from "@/components/shared/GoalDrawer";
+import { WorkplaceRevenue } from "@/components/shared/WorkplaceRevenue";
+import { WorkplaceFilter } from "@/components/shared/WorkplaceFilter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState, Money, MonthSwitcher, Panel, Section } from "@/components/shared/primitives";
 import { ShiftRow, shiftDayLabel, StatusBadge, useWorkplaceMap, WorkplaceDot } from "@/components/shifts/shift-ui";
@@ -35,6 +35,8 @@ function greeting() {
 function Home() {
   const { data: profile } = useProfile();
   const shifts = useShifts();
+  const [workplace, setWorkplace] = useState("all");
+  const visible = (shifts.data ?? []).filter((s) => workplace === "all" || s.workplaceId === workplace);
   return (
     <div className="space-y-8">
       <header className="flex items-center justify-between px-5 pt-6">
@@ -46,6 +48,7 @@ function Home() {
           <Bell className="size-5" />
         </Button>
       </header>
+      <Section><WorkplaceFilter value={workplace} onChange={setWorkplace} /></Section>
       {shifts.isPending ? (
         <div className="space-y-4 px-5">
           <Skeleton className="h-56 rounded-3xl" />
@@ -55,10 +58,10 @@ function Home() {
         <div className="px-5"><ErrorState onRetry={() => shifts.refetch()} /></div>
       ) : (
         <>
-          <EarningsCard shifts={shifts.data} />
-          <RevenueGoal shifts={shifts.data} />
-          <NextShift shifts={shifts.data} />
-          <RecentShifts shifts={shifts.data} />
+          <EarningsCard shifts={visible} />
+          <RevenueGoal shifts={visible} workplace={workplace} />
+          <NextShift shifts={visible} />
+          <RecentShifts shifts={visible} />
         </>
       )}
     </div>
@@ -75,7 +78,6 @@ function EarningsCard({ shifts }: { shifts: import("@/lib/types").Shift[] }) {
     { label: "Часы", value: s.shifts ? formatHours(s.minutes) : "—" },
     { label: "Смены", value: formatNumber(s.shifts) },
     { label: "Чаевые", node: <Money value={s.tips.value} partial={s.tips.partial} /> },
-    { label: "Выручка", node: <Money value={s.revenue.value} partial={s.revenue.partial} /> },
   ];
   return (
     <section className="px-5">
@@ -177,35 +179,7 @@ function RecentShifts({ shifts }: { shifts: import("@/lib/types").Shift[] }) {
   );
 }
 
-function RevenueGoal({ shifts }: { shifts: import("@/lib/types").Shift[] }) {
-  const { data: profile } = useProfile();
-  const [editing, setEditing] = useState(false);
-  const month = new Date();
-  const rev = useMemo(() => summarize(shifts.filter((x) => isSameMonth(parseISO(x.date), month))).revenue, [shifts]); // eslint-disable-line react-hooks/exhaustive-deps
-  const goal = profile?.revenueGoal ?? null;
-  const pct = goal && rev.value !== null ? Math.round((rev.value / goal) * 100) : null;
-  return (
-    <Section title="Цель по выручке" action={
-      <Button size="sm" variant="ghost" className="h-8 text-primary" onClick={() => setEditing(true)}>
-        <Pencil className="size-3.5" />{goal ? "Изменить" : "Задать"}
-      </Button>
-    }>
-      {goal ? (
-        <Panel className="p-4">
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="min-w-0 text-sm"><Money value={rev.value} partial={rev.partial} className="font-semibold" /> <span className="text-muted-foreground">из {formatMoney(goal)}</span></span>
-            <span className="shrink-0 font-display text-lg font-semibold tabular">{pct === null ? "—" : `${pct}%`}</span>
-          </div>
-          <Progress className="mt-3 h-2" value={pct === null ? 0 : Math.min(100, pct)} />
-          <p className="mt-2 text-xs text-muted-foreground">
-            {rev.value === null ? "Выручка за месяц пока неизвестна" : rev.value >= goal ? "Цель выполнена" : `Осталось ${formatMoney(goal - rev.value)}`}
-          </p>
-        </Panel>
-      ) : (
-        <EmptyState icon={Target} title="Цель не задана" text="Укажите желаемую личную выручку за месяц" />
-      )}
-      <GoalDrawer open={editing} onClose={() => setEditing(false)} field="revenueGoal" title="Цель по выручке" value={goal} />
-    </Section>
-  );
+function RevenueGoal({ shifts, workplace }: { shifts: import("@/lib/types").Shift[]; workplace: string }) {
+  const month = format(new Date(), "yyyy-MM");
+  return <Section title="Личная выручка"><p className="mb-2 text-xs text-muted-foreground">Текущий месяц</p><WorkplaceRevenue shifts={shifts.filter((s) => s.date.startsWith(month))} selected={workplace} /></Section>;
 }
-
