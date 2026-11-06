@@ -10,33 +10,115 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as StatsRouteImport } from './routes/stats'
+import { Route as ProfileAccountRouteImport } from './routes/profile_.account'
+import { Route as ShiftsIdRouteImport } from './routes/shifts.$id'
+import { Route as ShiftsNewRouteImport } from './routes/shifts.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StatsRoute = StatsRouteImport.update({
+  id: '/stats',
+  path: '/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileAccountRoute = ProfileAccountRouteImport.update({
+  id: '/profile_/account',
+  path: '/profile/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShiftsIdRoute = ShiftsIdRouteImport.update({
+  id: '/shifts/$id',
+  path: '/shifts/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShiftsNewRoute = ShiftsNewRouteImport.update({
+  id: '/shifts/new',
+  path: '/shifts/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
+  '/profile': typeof ProfileRoute
+  '/stats': typeof StatsRoute
+  '/profile/account': typeof ProfileAccountRoute
+  '/shifts/$id': typeof ShiftsIdRoute
+  '/shifts/new': typeof ShiftsNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
+  '/profile': typeof ProfileRoute
+  '/stats': typeof StatsRoute
+  '/profile/account': typeof ProfileAccountRoute
+  '/shifts/$id': typeof ShiftsIdRoute
+  '/shifts/new': typeof ShiftsNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
+  '/profile': typeof ProfileRoute
+  '/stats': typeof StatsRoute
+  '/profile_/account': typeof ProfileAccountRoute
+  '/shifts/$id': typeof ShiftsIdRoute
+  '/shifts/new': typeof ShiftsNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/calendar'
+    | '/profile'
+    | '/stats'
+    | '/profile/account'
+    | '/shifts/$id'
+    | '/shifts/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/calendar'
+    | '/profile'
+    | '/stats'
+    | '/profile/account'
+    | '/shifts/$id'
+    | '/shifts/new'
+  id:
+    | '__root__'
+    | '/'
+    | '/calendar'
+    | '/profile'
+    | '/stats'
+    | '/profile_/account'
+    | '/shifts/$id'
+    | '/shifts/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CalendarRoute: typeof CalendarRoute
+  ProfileRoute: typeof ProfileRoute
+  StatsRoute: typeof StatsRoute
+  ProfileAccountRoute: typeof ProfileAccountRoute
+  ShiftsIdRoute: typeof ShiftsIdRoute
+  ShiftsNewRoute: typeof ShiftsNewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +130,59 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stats': {
+      id: '/stats'
+      path: '/stats'
+      fullPath: '/stats'
+      preLoaderRoute: typeof StatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile_/account': {
+      id: '/profile_/account'
+      path: '/profile/account'
+      fullPath: '/profile/account'
+      preLoaderRoute: typeof ProfileAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shifts/$id': {
+      id: '/shifts/$id'
+      path: '/shifts/$id'
+      fullPath: '/shifts/$id'
+      preLoaderRoute: typeof ShiftsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shifts/new': {
+      id: '/shifts/new'
+      path: '/shifts/new'
+      fullPath: '/shifts/new'
+      preLoaderRoute: typeof ShiftsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CalendarRoute: CalendarRoute,
+  ProfileRoute: ProfileRoute,
+  StatsRoute: StatsRoute,
+  ProfileAccountRoute: ProfileAccountRoute,
+  ShiftsIdRoute: ShiftsIdRoute,
+  ShiftsNewRoute: ShiftsNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

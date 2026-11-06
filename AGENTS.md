@@ -7,24 +7,11 @@
 >
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
-
-## What Lovable manages
-
-Rules outside this block are the project's own. Change the pieces below in
-Lovable, not by hand. With the [Lovable MCP](https://mcp.lovable.dev)
-connected, `send_message` asks Lovable to do it; otherwise ask the user to
-use the editor.
-
-- **Database.** Do not add or edit `supabase/migrations/` or `drizzle/`.
-  Ask Lovable to change the schema.
-- **Generated files.** Do not edit a file whose header says it is automatically
-  generated.
-- **AI gateway.** Keep model calls on Lovable's gateway, and keep
-  `LOVABLE_API_KEY` out of browser code.
-- **Connectors.** Lovable provides native connectors. `list_connectors` shows
-  which are enabled; `add_connector` only returns the dashboard link. When a
-  connector is enabled, calls go through the connector gateway and need
-  `LOVABLE_API_KEY`. When Lovable does not provide one, users can bring their
-  own key and store it in Secrets.
-- **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+- Screens read data only via `src/data/queries.ts` query options; mock data lives in `src/data/mock.ts` so Supabase can replace queryFns without touching screens.
+- Financial values are nullable (`null` = unknown) and must render as "—", never 0; actual earnings only sum confirmed values; the only client-side calculation is the hourly-rate estimate for not-yet-completed shifts in `src/lib/rates.ts` (no commission/tips/bonus forecasting) — keeps actual vs. preliminary from double counting.
+- Calendar colour encodes the workplace only (`--wp-<key>` tokens); shift status is shown by neutral icons from `STATUS_META` — one visual channel per meaning.
+- Until Supabase, writes go to the in-memory `db` in `src/data/mock.ts` via mutation hooks in `src/data/queries.ts`.
+- Interactive shift writes use the shared save guard, including completion; conflicts require explicit override so create and edit follow the same rules.
+- Numeric inputs keep canonical ungrouped decimal strings and use the shared NumberInput for presentation; parsers return nullable finite numbers to keep formatting out of calculations.

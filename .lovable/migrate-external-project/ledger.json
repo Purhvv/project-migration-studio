@@ -1,0 +1,2 @@
+[{"capability":"code","source":"archive","outcome":"migrate","status":"verified","next_action":null},
+{"capability":"schema/records/auth","source":"none (in-memory mock data)","outcome":"none","status":"accepted","next_action":null}]
