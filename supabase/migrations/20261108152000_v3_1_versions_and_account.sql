@@ -85,8 +85,8 @@ BEGIN
  IF p_user IS NULL THEN RAISE EXCEPTION 'User required' USING ERRCODE='22023'; END IF;
  IF EXISTS(SELECT 1 FROM auth.users WHERE id=p_user) THEN
   RAISE EXCEPTION 'Auth identity must be deleted through the controlled auth flow first' USING ERRCODE='22023'; END IF;
+ -- The auth cascade may already have removed the profile; deletion is idempotent.
  DELETE FROM public.profiles WHERE id=p_user;
- IF NOT FOUND THEN RAISE EXCEPTION 'Profile not found' USING ERRCODE='22023'; END IF;
  RETURN jsonb_build_object('deleted',p_user);
 END $$;
 REVOKE ALL ON FUNCTION public.shiftly_delete_account(uuid) FROM PUBLIC,anon,authenticated;

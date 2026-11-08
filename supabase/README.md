@@ -12,8 +12,13 @@ Apply migrations in ascending filename order only after separate approval, a bac
 - `migrations/20261108143000_v3_operations.sql`: authenticated atomic writes, expected revisions, conflict override, version publication, archive, trash/restore/purge, financial changes and audit.
 - `migrations/20261108144000_v3_finance_hardening.sql`: forward correction of provisional cent allocation, `none` commission, unchanged hourly snapshots and exact restoration.
 - `rollback/`: one reverse file per migration.
+- `migrations/20261108150000_v3_1_commission_largest_remainder.sql`: Largest Remainder cent allocation and digest hardening.
+- `migrations/20261108151000_v3_1_status_and_validation.sql`: explicit status machine, strict nested money validation, atomic local/UTC time updates.
+- `migrations/20261108152000_v3_1_versions_and_account.sql`: per-workplace version revisions, future planned-shift recalculation, service-role account deletion.
+- `migrations/20261108153000_v3_1_timezone_guard.sql`: split timezone trigger (fixes profiles/workplaces insert failure found by fixture testing).
 - `tests/v3_contract.sql`: catalog contracts and pure monetary/time expressions, without fixture rows.
-- `STAGE2_REPORT.md`: validation evidence, contradictions, missing end-to-end coverage and release blockers.
+- `tests/v3_1_contract.sql`: stage 2.1 catalog and validator contracts, without fixture rows.
+- `STAGE2_REPORT.md`: validation evidence, contradictions, missing end-to-end coverage and release blockers, including the stage 2.1 fix/test report (57 isolated scenario checks, all passed).
 
 ## Security and callers
 
