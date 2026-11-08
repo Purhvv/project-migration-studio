@@ -230,7 +230,8 @@ BEGIN
  v1 := (pg_temp.call_as(u, gen_random_uuid(), 'publish_rates', jsonb_build_object(
   'workplace_id', w, 'effective_from', '2026-01-01', 'intervals', jsonb_build_array(
    jsonb_build_object('kind','hourly','start_time','00:00','end_time','23:59','hourly','100','label','v1')))))->>'version_id';
- FOR i IN 1..3 LOOP
+ -- completed and in_progress come from the RPC; pending is inserted directly below.
+ FOR i IN 1..2 LOOP
   PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
    'id', ids[i], 'workplace_id', w, 'local_start_date', ds[i], 'local_end_date', ds[i],
    'start_time', '10:00', 'end_time', '18:00', 'starts_at', (ds[i]::date || ' 07:00:00Z')::text, 'ends_at', (ds[i]::date || ' 15:00:00Z')::text));
