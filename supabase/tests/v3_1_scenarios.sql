@@ -524,8 +524,8 @@ BEGIN
  IF a = b THEN RAISE EXCEPTION 'FAIL [S10]: the two copies of the repeated local time must differ in UTC'; END IF;
  -- Second-level mismatch between local fields and UTC instants: rejected.
  PERFORM pg_temp.expect_error(u, 'shift_create', jsonb_build_object(
-  'id', s_sec, 'workplace_id', w, 'local_start_date', '2026-05-10', 'local_end_date', '2026-05-10',
-  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-05-10T14:00:30Z', 'ends_at', '2026-05-10T22:00:00Z'),
+  'id', s_sec, 'workplace_id', w, 'local_start_date', '2026-05-20', 'local_end_date', '2026-05-20',
+  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-05-20T14:00:30Z', 'ends_at', '2026-05-20T22:00:00Z'),
   '22023', 'S10 second-level mismatch rejected');
  RAISE NOTICE 'SCENARIO 10 OK: DST gap, repeated local time and consistency guard';
 END $$;
