@@ -18,6 +18,8 @@ Apply migrations in ascending filename order only after separate approval, a bac
 - `migrations/20261108153000_v3_1_timezone_guard.sql`: split timezone trigger (fixes profiles/workplaces insert failure found by fixture testing).
 - `tests/v3_contract.sql`: catalog contracts and pure monetary/time expressions, without fixture rows.
 - `tests/v3_1_contract.sql`: stage 2.1 catalog and validator contracts, without fixture rows.
+- `tests/v3_1_scenarios.sql`: 11 permanent scenario tests (Largest Remainder, revisions, future recalculation, status machine, RLS, idempotency, trash, account deletion, DST, validators). Runs only in a disposable empty database with `PGOPTIONS='-c app.shiftly_test_env=on'`; single transaction, rolled back — no test data persists.
+- `tests/v3_1_concurrency.sh`: real parallel-session tests (concurrent publications, edit conflicts, recalc vs complete). Requires `TEST_DB_DSN` pointing at a disposable database; cleans up its fixture user via trap. Never run any test against Cloud or a working database.
 - `STAGE2_REPORT.md`: validation evidence, contradictions, missing end-to-end coverage and release blockers, including the stage 2.1 fix/test report (57 isolated scenario checks, all passed).
 
 ## Security and callers
