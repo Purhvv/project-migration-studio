@@ -1,0 +1,3 @@
+BEGIN;
+DROP SCHEMA shiftly_private CASCADE;
+COMMIT;
