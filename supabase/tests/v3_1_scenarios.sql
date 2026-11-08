@@ -130,7 +130,7 @@ BEGIN
   PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
    'id', ids[i], 'workplace_id', w,
    'local_start_date', ds[i], 'local_end_date', ds[i], 'start_time', '10:00', 'end_time', '18:00',
-   'starts_at', (ds[i]::date || ' 07:00:00+00')::text, 'ends_at', (ds[i]::date || ' 15:00:00+00')::text));
+   'starts_at', (ds[i]::date || ' 07:00:00Z')::text, 'ends_at', (ds[i]::date || ' 15:00:00Z')::text));
   PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_complete', jsonb_build_object(
    'id', ids[i], 'expected_revision', 1, 'revenue', '33.33', 'expected_revenue_revision', 1));
  END LOOP;
@@ -190,7 +190,7 @@ BEGIN
    jsonb_build_object('kind','hourly','start_time','00:00','end_time','23:59','hourly','100','label','v1'))));
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
   'id', s, 'workplace_id', w, 'local_start_date', '2026-06-10', 'local_end_date', '2026-06-10',
-  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-06-10T07:00:00+00', 'ends_at', '2026-06-10T15:00:00+00'));
+  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-06-10T07:00:00Z', 'ends_at', '2026-06-10T15:00:00Z'));
  SELECT base_pay INTO sh FROM public.shifts WHERE id = s;
  IF sh.base_pay IS DISTINCT FROM 800.00 THEN RAISE EXCEPTION 'FAIL [S3]: initial base_pay must be 800.00, got %', sh.base_pay; END IF;
  v2 := (pg_temp.call_as(u, gen_random_uuid(), 'publish_rates', jsonb_build_object(
@@ -233,7 +233,7 @@ BEGIN
  FOR i IN 1..3 LOOP
   PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
    'id', ids[i], 'workplace_id', w, 'local_start_date', ds[i], 'local_end_date', ds[i],
-   'start_time', '10:00', 'end_time', '18:00', 'starts_at', (ds[i]::date || ' 07:00:00+00')::text, 'ends_at', (ds[i]::date || ' 15:00:00+00')::text));
+   'start_time', '10:00', 'end_time', '18:00', 'starts_at', (ds[i]::date || ' 07:00:00Z')::text, 'ends_at', (ds[i]::date || ' 15:00:00Z')::text));
  END LOOP;
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_start', jsonb_build_object('id', s_progress, 'expected_revision', 1));
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_complete', jsonb_build_object(
@@ -242,11 +242,11 @@ BEGIN
  INSERT INTO public.shifts(id, user_id, workplace_id, local_start_date, local_end_date, start_time, end_time,
   workplace_timezone, starts_at, ends_at, status, base_pay, rate_version_id)
  VALUES(s_pending, u, w, '2026-06-07', '2026-06-07', '10:00', '18:00', 'Europe/Moscow',
-  '2026-06-07T07:00:00+00', '2026-06-07T15:00:00+00', 'pending', 800.00, v1);
+  '2026-06-07T07:00:00Z', '2026-06-07T15:00:00Z', 'pending', 800.00, v1);
  -- The future planned shift after the new effective date.
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
   'id', s_planned, 'workplace_id', w, 'local_start_date', '2026-06-20', 'local_end_date', '2026-06-20',
-  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-06-20T07:00:00+00', 'ends_at', '2026-06-20T15:00:00+00'));
+  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-06-20T07:00:00Z', 'ends_at', '2026-06-20T15:00:00Z'));
  -- Snapshot before publication.
  CREATE TEMP TABLE s4_before ON COMMIT DROP AS
   SELECT id, base_pay, revision, rate_version_id FROM public.shifts WHERE workplace_id = w;
@@ -280,7 +280,7 @@ BEGIN
   jsonb_build_object('id', w, 'name', 'Status Diner', 'color', 'violet', 'timezone', 'Europe/Moscow'));
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
   'id', s1, 'workplace_id', w, 'local_start_date', '2026-05-10', 'local_end_date', '2026-05-10',
-  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-05-10T07:00:00+00', 'ends_at', '2026-05-10T15:00:00+00'));
+  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-05-10T07:00:00Z', 'ends_at', '2026-05-10T15:00:00Z'));
  SELECT status INTO st FROM public.shifts WHERE id = s1;
  IF st <> 'planned' THEN RAISE EXCEPTION 'FAIL [S5]: shift_create must yield planned, got %', st; END IF;
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_start', jsonb_build_object('id', s1, 'expected_revision', 1));
@@ -296,7 +296,7 @@ BEGIN
  PERFORM pg_temp.expect_error(u, 'shift_edit', jsonb_build_object('id', s1, 'expected_revision', 3, 'status', 'cancelled'), '22023', 'S5 raw status key rejected');
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
   'id', s2, 'workplace_id', w, 'local_start_date', '2026-05-11', 'local_end_date', '2026-05-11',
-  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-05-11T07:00:00+00', 'ends_at', '2026-05-11T15:00:00+00'));
+  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-05-11T07:00:00Z', 'ends_at', '2026-05-11T15:00:00Z'));
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_cancel', jsonb_build_object('id', s2, 'expected_revision', 1));
  SELECT status INTO st FROM public.shifts WHERE id = s2;
  IF st <> 'cancelled' THEN RAISE EXCEPTION 'FAIL [S5]: shift_cancel must yield cancelled, got %', st; END IF;
@@ -326,7 +326,7 @@ BEGIN
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
   'id', 'cccccccc-0000-0000-0000-0000000000b0', 'workplace_id', w,
   'local_start_date', '2026-04-01', 'local_end_date', '2026-04-01',
-  'start_time', '09:00', 'end_time', '17:00', 'starts_at', '2026-04-01T06:00:00+00', 'ends_at', '2026-04-01T14:00:00+00'));
+  'start_time', '09:00', 'end_time', '17:00', 'starts_at', '2026-04-01T06:00:00Z', 'ends_at', '2026-04-01T14:00:00Z'));
 END $$;
 CREATE TEMP TABLE s6_expected ON COMMIT DROP AS
 SELECT (SELECT count(*) FROM public.shifts WHERE user_id = 'aaaaaaaa-0000-0000-0000-00000000000a') AS shifts_a,
@@ -349,7 +349,7 @@ BEGIN
   INSERT INTO public.shifts(id, user_id, workplace_id, local_start_date, local_end_date, start_time, end_time,
    workplace_timezone, starts_at, ends_at, status)
   VALUES(gen_random_uuid(), 'aaaaaaaa-0000-0000-0000-00000000000a', 'bbbbbbbb-0000-0000-0000-000000000001',
-   '2026-04-02', '2026-04-02', '10:00', '18:00', 'Europe/Moscow', '2026-04-02T07:00:00+00', '2026-04-02T15:00:00+00', 'planned');
+   '2026-04-02', '2026-04-02', '10:00', '18:00', 'Europe/Moscow', '2026-04-02T07:00:00Z', '2026-04-02T15:00:00Z', 'planned');
   RAISE EXCEPTION 'FAIL [S6]: direct INSERT by client role must be denied';
  EXCEPTION WHEN insufficient_privilege THEN NULL;
  END;
@@ -385,7 +385,7 @@ BEGIN
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'workplace_edit',
   jsonb_build_object('id', w, 'name', 'Idem Spot', 'color', 'sky', 'timezone', 'Europe/Moscow'));
  payload := jsonb_build_object('id', s, 'workplace_id', w, 'local_start_date', '2026-04-10', 'local_end_date', '2026-04-10',
-  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-04-10T07:00:00+00', 'ends_at', '2026-04-10T15:00:00+00');
+  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-04-10T07:00:00Z', 'ends_at', '2026-04-10T15:00:00Z');
  r1 := pg_temp.call_as(u, k, 'shift_create', payload);
  r2 := pg_temp.call_as(u, k, 'shift_create', payload);
  IF r1 IS DISTINCT FROM r2 THEN RAISE EXCEPTION 'FAIL [S7]: replay must return the stored response'; END IF;
@@ -414,7 +414,7 @@ BEGIN
   jsonb_build_object('id', w, 'name', 'Trash Lab', 'color', 'green', 'timezone', 'Europe/Moscow'));
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
   'id', s, 'workplace_id', w, 'local_start_date', '2026-04-20', 'local_end_date', '2026-04-20',
-  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-04-20T07:00:00+00', 'ends_at', '2026-04-20T15:00:00+00',
+  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-04-20T07:00:00Z', 'ends_at', '2026-04-20T15:00:00Z',
   'tips', '50'));
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_delete', jsonb_build_object('id', s, 'expected_revision', 1));
  SELECT deleted_at INTO sh FROM public.shifts WHERE id = s;
@@ -454,7 +454,7 @@ BEGIN
   jsonb_build_object('id', w, 'name', 'Goodbye Inc', 'color', 'amber', 'timezone', 'Europe/Moscow'));
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
   'id', s, 'workplace_id', w, 'local_start_date', '2026-04-15', 'local_end_date', '2026-04-15',
-  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-04-15T07:00:00+00', 'ends_at', '2026-04-15T15:00:00+00'));
+  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-04-15T07:00:00Z', 'ends_at', '2026-04-15T15:00:00Z'));
  -- Refused while the auth identity still exists.
  BEGIN
   PERFORM public.shiftly_delete_account(u);
@@ -502,26 +502,26 @@ BEGIN
  -- Valid shift across the spring-forward gap: 01:30 EST -> 03:30 EDT.
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
   'id', s_gap, 'workplace_id', w, 'local_start_date', '2026-03-08', 'local_end_date', '2026-03-08',
-  'start_time', '01:30', 'end_time', '03:30', 'starts_at', '2026-03-08T06:30:00+00', 'ends_at', '2026-03-08T07:30:00+00'));
+  'start_time', '01:30', 'end_time', '03:30', 'starts_at', '2026-03-08T06:30:00Z', 'ends_at', '2026-03-08T07:30:00Z'));
  -- Nonexistent local time 02:30 (07:30 UTC is already 03:30 EDT): rejected by the timezone trigger.
  PERFORM pg_temp.expect_error(u, 'shift_create', jsonb_build_object(
   'id', s_bad, 'workplace_id', w, 'local_start_date', '2026-03-08', 'local_end_date', '2026-03-08',
-  'start_time', '02:30', 'end_time', '03:30', 'starts_at', '2026-03-08T07:30:00+00', 'ends_at', '2026-03-08T08:30:00+00'),
+  'start_time', '02:30', 'end_time', '03:30', 'starts_at', '2026-03-08T07:30:00Z', 'ends_at', '2026-03-08T08:30:00Z'),
   '22023', 'S10 nonexistent local time rejected');
  -- Fall-back: local 01:30-02:30 happens twice; both UTC resolutions are valid and distinct.
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
   'id', s_fb1, 'workplace_id', w, 'local_start_date', '2026-11-01', 'local_end_date', '2026-11-01',
-  'start_time', '01:30', 'end_time', '02:30', 'starts_at', '2026-11-01T05:30:00+00', 'ends_at', '2026-11-01T06:30:00+00'));
+  'start_time', '01:30', 'end_time', '02:30', 'starts_at', '2026-11-01T05:30:00Z', 'ends_at', '2026-11-01T06:30:00Z'));
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
   'id', s_fb2, 'workplace_id', w, 'local_start_date', '2026-11-01', 'local_end_date', '2026-11-01',
-  'start_time', '01:30', 'end_time', '02:30', 'starts_at', '2026-11-01T06:30:00+00', 'ends_at', '2026-11-01T07:30:00+00'));
+  'start_time', '01:30', 'end_time', '02:30', 'starts_at', '2026-11-01T06:30:00Z', 'ends_at', '2026-11-01T07:30:00Z'));
  SELECT starts_at INTO a FROM public.shifts WHERE id = s_fb1;
  SELECT starts_at INTO b FROM public.shifts WHERE id = s_fb2;
  IF a = b THEN RAISE EXCEPTION 'FAIL [S10]: the two copies of the repeated local time must differ in UTC'; END IF;
  -- Second-level mismatch between local fields and UTC instants: rejected.
  PERFORM pg_temp.expect_error(u, 'shift_create', jsonb_build_object(
   'id', s_sec, 'workplace_id', w, 'local_start_date', '2026-05-10', 'local_end_date', '2026-05-10',
-  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-05-10T14:00:30+00', 'ends_at', '2026-05-10T22:00:00+00'),
+  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-05-10T14:00:30Z', 'ends_at', '2026-05-10T22:00:00Z'),
   '22023', 'S10 second-level mismatch rejected');
  RAISE NOTICE 'SCENARIO 10 OK: DST gap, repeated local time and consistency guard';
 END $$;
@@ -538,7 +538,7 @@ BEGIN
   jsonb_build_object('id', w, 'name', 'Validators', 'color', 'violet', 'timezone', 'Europe/Moscow'));
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
   'id', s, 'workplace_id', w, 'local_start_date', '2026-04-25', 'local_end_date', '2026-04-25',
-  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-04-25T07:00:00+00', 'ends_at', '2026-04-25T15:00:00+00'));
+  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-04-25T07:00:00Z', 'ends_at', '2026-04-25T15:00:00Z'));
  -- Money must be canonical decimal strings: JSON numbers, extra decimals,
  -- exponents and signs are all rejected with 22023.
  PERFORM pg_temp.expect_error(u, 'shift_complete', jsonb_build_object('id', s, 'expected_revision', 1, 'revenue', 33.33, 'expected_revenue_revision', 1), '22023', 'S11 JSON number rejected');

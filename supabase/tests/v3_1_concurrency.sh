@@ -87,7 +87,7 @@ psql_run <<SQL
 SELECT set_config('request.jwt.claim.sub', '$U', false);
 SELECT public.shiftly_write(gen_random_uuid(), 'shift_create', jsonb_build_object(
  'id', '$SID', 'workplace_id', '$W', 'local_start_date', '2026-05-10', 'local_end_date', '2026-05-10',
- 'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-05-10T07:00:00+00', 'ends_at', '2026-05-10T15:00:00+00'));
+ 'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-05-10T07:00:00Z', 'ends_at', '2026-05-10T15:00:00Z'));
 SQL
 psql "$DSN" -q -v ON_ERROR_STOP=1 >"$TMP/c2a.out" 2>&1 <<SQL &
 SELECT set_config('request.jwt.claim.sub', '$U', false);
@@ -119,7 +119,7 @@ psql_run <<SQL
 SELECT set_config('request.jwt.claim.sub', '$U', false);
 SELECT public.shiftly_write(gen_random_uuid(), 'shift_create', jsonb_build_object(
  'id', '$SID2', 'workplace_id', '$W', 'local_start_date', '2026-05-11', 'local_end_date', '2026-05-11',
- 'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-05-11T07:00:00+00', 'ends_at', '2026-05-11T15:00:00+00'));
+ 'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-05-11T07:00:00Z', 'ends_at', '2026-05-11T15:00:00Z'));
 SQL
 psql "$DSN" -q -v ON_ERROR_STOP=1 >"$TMP/c3a.out" 2>&1 <<SQL &
 SELECT set_config('request.jwt.claim.sub', '$U', false);
