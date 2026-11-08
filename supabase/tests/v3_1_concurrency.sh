@@ -26,12 +26,11 @@ W="ffffffff-0000-0000-0000-$(printf '%012d' $RANDOM)"
 cleanup() {
   psql "$DSN" -q -v ON_ERROR_STOP=0 \
     -c "DELETE FROM auth.users WHERE id = '$U';" >/dev/null 2>&1 || true
-  echo "TMP kept: $TMP"
+  rm -rf "$TMP"
 }
 trap cleanup EXIT
-set -x
 
-psql_run() { psql "$DSN" -q -v ON_ERROR_STOP=1 -t -A; }
+psql_run() { psql "$DSN" -q -v ON_ERROR_STOP=1 -t -A "$@"; }
 
 echo "== fixture =="
 psql_run <<SQL
