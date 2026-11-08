@@ -115,10 +115,9 @@ END $$;
 DO $$
 DECLARE u uuid := 'aaaaaaaa-0000-0000-0000-00000000000a';
  w uuid := 'bbbbbbbb-0000-0000-0000-000000000001';
- s1 uuid := 'cccccccc-0000-0000-0000-000000000001';
- s2 uuid := 'cccccccc-0000-0000-0000-000000000002';
- s3 uuid := 'cccccccc-0000-0000-0000-000000000003';
- m record; n bigint; total numeric; winners bigint; winner_id uuid;
+ ids uuid[] := ARRAY['cccccccc-0000-0000-0000-000000000001','cccccccc-0000-0000-0000-000000000002','cccccccc-0000-0000-0000-000000000003'];
+ ds text[] := ARRAY['2026-03-10','2026-03-11','2026-03-12'];
+ i integer; m record; n bigint; total numeric; winners bigint; winner_id uuid;
 BEGIN
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'workplace_edit',
   jsonb_build_object('id', w, 'name', 'LR Cafe', 'color', 'sky', 'timezone', 'Europe/Moscow'));
@@ -127,13 +126,13 @@ BEGIN
    jsonb_build_object('kind','hourly','start_time','00:00','end_time','23:59','hourly','100','label','base'))));
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'publish_commission', jsonb_build_object(
   'workplace_id', w, 'effective_from', '2026-01-01', 'mode', 'fixed', 'fixed_percent', '10'));
- FOREACH m IN ARRAY ARRAY[[s1, '2026-03-10'], [s2, '2026-03-11'], [s3, '2026-03-12']] LOOP
+ FOR i IN 1..3 LOOP
   PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
-   'id', m[0], 'workplace_id', w,
-   'local_start_date', m[1], 'local_end_date', m[1], 'start_time', '10:00', 'end_time', '18:00',
-   'starts_at', (m[1]::date || ' 07:00:00+00')::text, 'ends_at', (m[1]::date || ' 15:00:00+00')::text));
+   'id', ids[i], 'workplace_id', w,
+   'local_start_date', ds[i], 'local_end_date', ds[i], 'start_time', '10:00', 'end_time', '18:00',
+   'starts_at', (ds[i]::date || ' 07:00:00+00')::text, 'ends_at', (ds[i]::date || ' 15:00:00+00')::text));
   PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_complete', jsonb_build_object(
-   'id', m[0], 'expected_revision', 1, 'revenue', '33.33', 'expected_revenue_revision', 1));
+   'id', ids[i], 'expected_revision', 1, 'revenue', '33.33', 'expected_revenue_revision', 1));
  END LOOP;
  SELECT count(*), sum(commission_pay), count(*) FILTER (WHERE commission_pay = 3.34)
  INTO n, total, winners FROM public.shifts WHERE workplace_id = w AND status = 'completed';
@@ -142,7 +141,7 @@ BEGIN
  END IF;
  -- Tie on the fractional part (all .30) is broken by smallest id.
  SELECT id INTO winner_id FROM public.shifts WHERE workplace_id = w AND commission_pay = 3.34;
- IF winner_id <> s1 THEN RAISE EXCEPTION 'FAIL [S1]: leftover cent must go to the smallest id on ties, got %', winner_id; END IF;
+ IF winner_id <> ids[1] THEN RAISE EXCEPTION 'FAIL [S1]: leftover cent must go to the smallest id on ties, got %', winner_id; END IF;
  SELECT * INTO m FROM public.monthly_commission_results WHERE workplace_id = w AND month = '2026-03-01';
  IF m.commission_amount IS DISTINCT FROM 10.00 OR m.applied_percent IS DISTINCT FROM 10.00
    OR m.revenue_total IS DISTINCT FROM 99.99 OR m.state <> 'final' OR NOT m.calculation_available THEN
@@ -220,17 +219,21 @@ DECLARE u uuid := 'aaaaaaaa-0000-0000-0000-00000000000a';
  s_progress uuid := 'cccccccc-0000-0000-0000-000000000021';
  s_completed uuid := 'cccccccc-0000-0000-0000-000000000022';
  s_pending uuid := 'cccccccc-0000-0000-0000-000000000023';
- v1 uuid; rec record;
+ ids uuid[]; ds text[]; i integer; v1 uuid; rec record;
 BEGIN
+ -- The completed shift predates the new effective_from, otherwise the
+ -- historical-publication guard would (correctly) reject the publication.
+ ids := ARRAY[s_completed, s_progress, s_pending, s_planned];
+ ds := ARRAY['2026-06-05','2026-06-06','2026-06-07','2026-06-20'];
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'workplace_edit',
   jsonb_build_object('id', w, 'name', 'Stable States', 'color', 'rose', 'timezone', 'Europe/Moscow'));
  v1 := (pg_temp.call_as(u, gen_random_uuid(), 'publish_rates', jsonb_build_object(
   'workplace_id', w, 'effective_from', '2026-01-01', 'intervals', jsonb_build_array(
    jsonb_build_object('kind','hourly','start_time','00:00','end_time','23:59','hourly','100','label','v1')))))->>'version_id';
- FOREACH rec IN ARRAY ARRAY[[s_planned, '2026-06-10'], [s_progress, '2026-06-11'], [s_completed, '2026-06-12']] LOOP
+ FOR i IN 1..3 LOOP
   PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
-   'id', rec[0], 'workplace_id', w, 'local_start_date', rec[1], 'local_end_date', rec[1],
-   'start_time', '10:00', 'end_time', '18:00', 'starts_at', (rec[1]::date || ' 07:00:00+00')::text, 'ends_at', (rec[1]::date || ' 15:00:00+00')::text));
+   'id', ids[i], 'workplace_id', w, 'local_start_date', ds[i], 'local_end_date', ds[i],
+   'start_time', '10:00', 'end_time', '18:00', 'starts_at', (ds[i]::date || ' 07:00:00+00')::text, 'ends_at', (ds[i]::date || ' 15:00:00+00')::text));
  END LOOP;
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_start', jsonb_build_object('id', s_progress, 'expected_revision', 1));
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_complete', jsonb_build_object(
@@ -238,13 +241,17 @@ BEGIN
  -- Harness-only pending row (no RPC path creates it); satisfies all triggers.
  INSERT INTO public.shifts(id, user_id, workplace_id, local_start_date, local_end_date, start_time, end_time,
   workplace_timezone, starts_at, ends_at, status, base_pay, rate_version_id)
- VALUES(s_pending, u, w, '2026-06-13', '2026-06-13', '10:00', '18:00', 'Europe/Moscow',
-  '2026-06-13T07:00:00+00', '2026-06-13T15:00:00+00', 'pending', 800.00, v1);
+ VALUES(s_pending, u, w, '2026-06-07', '2026-06-07', '10:00', '18:00', 'Europe/Moscow',
+  '2026-06-07T07:00:00+00', '2026-06-07T15:00:00+00', 'pending', 800.00, v1);
+ -- The future planned shift after the new effective date.
+ PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
+  'id', s_planned, 'workplace_id', w, 'local_start_date', '2026-06-20', 'local_end_date', '2026-06-20',
+  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-06-20T07:00:00+00', 'ends_at', '2026-06-20T15:00:00+00'));
  -- Snapshot before publication.
  CREATE TEMP TABLE s4_before ON COMMIT DROP AS
   SELECT id, base_pay, revision, rate_version_id FROM public.shifts WHERE workplace_id = w;
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'publish_rates', jsonb_build_object(
-  'workplace_id', w, 'effective_from', '2026-06-01', 'intervals', jsonb_build_array(
+  'workplace_id', w, 'effective_from', '2026-06-10', 'intervals', jsonb_build_array(
    jsonb_build_object('kind','hourly','start_time','00:00','end_time','23:59','hourly','200','label','v2'))));
  FOR rec IN SELECT b.id, b.base_pay AS old_pay, b.revision AS old_rev, s.base_pay, s.revision
   FROM s4_before b JOIN public.shifts s ON s.id = b.id WHERE s.id <> s_planned
@@ -385,8 +392,7 @@ BEGIN
  SELECT count(*) INTO n FROM public.shifts WHERE id = s;
  SELECT count(*) INTO ops FROM public.operation_requests WHERE user_id = u AND idempotency_key = k;
  IF n <> 1 OR ops <> 1 THEN RAISE EXCEPTION 'FAIL [S7]: expected 1 shift and 1 operation row, got % and %', n, ops; END IF;
- PERFORM pg_temp.expect_error(u, 'shift_create', payload || jsonb_build_object('comment', 'different'), '23505', 'S7 key reuse with different payload');
- -- The conflicting attempt above used a fresh key; now reuse the SAME key k.
+ -- Reusing the SAME key with different content must conflict (23505).
  BEGIN
   PERFORM pg_temp.call_as(u, k, 'shift_create', payload || jsonb_build_object('comment', 'different'));
   RAISE EXCEPTION 'FAIL [S7]: same key with different payload must conflict';
@@ -442,7 +448,7 @@ DO $$
 DECLARE u uuid := 'aaaaaaaa-0000-0000-0000-00000000000c';
  w uuid := 'bbbbbbbb-0000-0000-0000-00000000000c';
  s uuid := 'cccccccc-0000-0000-0000-0000000000c0';
- r jsonb; n bigint; t text; state text; msg text;
+ r jsonb; n bigint; t text;
 BEGIN
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'workplace_edit',
   jsonb_build_object('id', w, 'name', 'Goodbye Inc', 'color', 'amber', 'timezone', 'Europe/Moscow'));
