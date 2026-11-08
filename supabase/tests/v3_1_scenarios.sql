@@ -510,13 +510,15 @@ BEGIN
   'id', s_bad, 'workplace_id', w, 'local_start_date', '2026-03-08', 'local_end_date', '2026-03-08',
   'start_time', '02:30', 'end_time', '03:30', 'starts_at', '2026-03-08T07:30:00Z', 'ends_at', '2026-03-08T08:30:00Z'),
   '22023', 'S10 nonexistent local time rejected');
- -- Fall-back: local 01:30-02:30 happens twice; both UTC resolutions are valid and distinct.
+ -- Fall-back: local 01:30-01:50 happens twice (EDT then EST); both UTC
+ -- resolutions are valid and distinct. (01:30-02:30 would not exist whole:
+ -- EDT ends at 02:00, when the clock falls back to 01:00 EST.)
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
   'id', s_fb1, 'workplace_id', w, 'local_start_date', '2026-11-01', 'local_end_date', '2026-11-01',
-  'start_time', '01:30', 'end_time', '02:30', 'starts_at', '2026-11-01T05:30:00Z', 'ends_at', '2026-11-01T06:30:00Z'));
+  'start_time', '01:30', 'end_time', '01:50', 'starts_at', '2026-11-01T05:30:00Z', 'ends_at', '2026-11-01T05:50:00Z'));
  PERFORM pg_temp.call_as(u, gen_random_uuid(), 'shift_create', jsonb_build_object(
   'id', s_fb2, 'workplace_id', w, 'local_start_date', '2026-11-01', 'local_end_date', '2026-11-01',
-  'start_time', '01:30', 'end_time', '02:30', 'starts_at', '2026-11-01T06:30:00Z', 'ends_at', '2026-11-01T07:30:00Z'));
+  'start_time', '01:30', 'end_time', '01:50', 'starts_at', '2026-11-01T06:30:00Z', 'ends_at', '2026-11-01T06:50:00Z'));
  SELECT starts_at INTO a FROM public.shifts WHERE id = s_fb1;
  SELECT starts_at INTO b FROM public.shifts WHERE id = s_fb2;
  IF a = b THEN RAISE EXCEPTION 'FAIL [S10]: the two copies of the repeated local time must differ in UTC'; END IF;
