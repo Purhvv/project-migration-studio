@@ -332,6 +332,7 @@ END $$;
 CREATE TEMP TABLE s6_expected ON COMMIT DROP AS
 SELECT (SELECT count(*) FROM public.shifts WHERE user_id = 'aaaaaaaa-0000-0000-0000-00000000000a') AS shifts_a,
        (SELECT count(*) FROM public.shifts WHERE user_id = 'aaaaaaaa-0000-0000-0000-00000000000b') AS shifts_b;
+GRANT SELECT ON s6_expected TO shiftly_test_rls_a, shiftly_test_rls_b;
 
 SET ROLE shiftly_test_rls_a;
 SELECT set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-00000000000a', true);
