@@ -28,3 +28,16 @@ export function authHead(title: string, description: string) {
     { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
   ] };
 }
+/** Personal (signed-in) space lives under /app; /account is its profile screen. */
+export function isPersonalPath(pathname: string): boolean {
+  return pathname === "/app" || pathname.startsWith("/app/") || pathname === "/account";
+}
+
+const DEMO_KEY = "shiftly-demo-opt-in";
+/** A signed-in user explicitly chose to browse the public demo in this tab. */
+export function wantsDemo(): boolean {
+  try { return sessionStorage.getItem(DEMO_KEY) === "1"; } catch { return false; }
+}
+export function setWantsDemo(value: boolean) {
+  try { if (value) sessionStorage.setItem(DEMO_KEY, "1"); else sessionStorage.removeItem(DEMO_KEY); } catch { /* storage unavailable */ }
+}

@@ -24,6 +24,9 @@ import { Route as ProfileAccountRouteImport } from './routes/profile_.account'
 import { Route as ProfileTrashRouteImport } from './routes/profile_.trash'
 import { Route as ShiftsIdRouteImport } from './routes/shifts.$id'
 import { Route as ShiftsNewRouteImport } from './routes/shifts.new'
+import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
+import { Route as AuthenticatedAppCalendarRouteImport } from './routes/_authenticated/app/calendar'
+import { Route as AuthenticatedAppStatsRouteImport } from './routes/_authenticated/app/stats'
 import { Route as ShiftsIdEditRouteImport } from './routes/shifts.$id.edit'
 
 const IndexRoute = IndexRouteImport.update({
@@ -100,6 +103,22 @@ const ShiftsNewRoute = ShiftsNewRouteImport.update({
   path: '/shifts/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
+  id: '/app/',
+  path: '/app/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAppCalendarRoute =
+  AuthenticatedAppCalendarRouteImport.update({
+    id: '/app/calendar',
+    path: '/app/calendar',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAppStatsRoute = AuthenticatedAppStatsRouteImport.update({
+  id: '/app/stats',
+  path: '/app/stats',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const ShiftsIdEditRoute = ShiftsIdEditRouteImport.update({
   id: '/edit',
   path: '/edit',
@@ -121,7 +140,10 @@ export interface FileRoutesByFullPath {
   '/profile/trash': typeof ProfileTrashRoute
   '/shifts/$id': typeof ShiftsIdRouteWithChildren
   '/shifts/new': typeof ShiftsNewRoute
+  '/app/calendar': typeof AuthenticatedAppCalendarRoute
+  '/app/stats': typeof AuthenticatedAppStatsRoute
   '/shifts/$id/edit': typeof ShiftsIdEditRoute
+  '/app/': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -138,7 +160,10 @@ export interface FileRoutesByTo {
   '/profile/trash': typeof ProfileTrashRoute
   '/shifts/$id': typeof ShiftsIdRouteWithChildren
   '/shifts/new': typeof ShiftsNewRoute
+  '/app/calendar': typeof AuthenticatedAppCalendarRoute
+  '/app/stats': typeof AuthenticatedAppStatsRoute
   '/shifts/$id/edit': typeof ShiftsIdEditRoute
+  '/app': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -157,7 +182,10 @@ export interface FileRoutesById {
   '/profile_/trash': typeof ProfileTrashRoute
   '/shifts/$id': typeof ShiftsIdRouteWithChildren
   '/shifts/new': typeof ShiftsNewRoute
+  '/_authenticated/app/calendar': typeof AuthenticatedAppCalendarRoute
+  '/_authenticated/app/stats': typeof AuthenticatedAppStatsRoute
   '/shifts/$id/edit': typeof ShiftsIdEditRoute
+  '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -176,7 +204,10 @@ export interface FileRouteTypes {
     | '/profile/trash'
     | '/shifts/$id'
     | '/shifts/new'
+    | '/app/calendar'
+    | '/app/stats'
     | '/shifts/$id/edit'
+    | '/app/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -193,7 +224,10 @@ export interface FileRouteTypes {
     | '/profile/trash'
     | '/shifts/$id'
     | '/shifts/new'
+    | '/app/calendar'
+    | '/app/stats'
     | '/shifts/$id/edit'
+    | '/app'
   id:
     | '__root__'
     | '/'
@@ -211,7 +245,10 @@ export interface FileRouteTypes {
     | '/profile_/trash'
     | '/shifts/$id'
     | '/shifts/new'
+    | '/_authenticated/app/calendar'
+    | '/_authenticated/app/stats'
     | '/shifts/$id/edit'
+    | '/_authenticated/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -338,6 +375,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShiftsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/app/': {
+      id: '/_authenticated/app/'
+      path: '/app'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/calendar': {
+      id: '/_authenticated/app/calendar'
+      path: '/app/calendar'
+      fullPath: '/app/calendar'
+      preLoaderRoute: typeof AuthenticatedAppCalendarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/stats': {
+      id: '/_authenticated/app/stats'
+      path: '/app/stats'
+      fullPath: '/app/stats'
+      preLoaderRoute: typeof AuthenticatedAppStatsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/shifts/$id/edit': {
       id: '/shifts/$id/edit'
       path: '/edit'
@@ -350,10 +408,16 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
+  AuthenticatedAppCalendarRoute: typeof AuthenticatedAppCalendarRoute
+  AuthenticatedAppStatsRoute: typeof AuthenticatedAppStatsRoute
+  AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccountRoute: AuthenticatedAccountRoute,
+  AuthenticatedAppCalendarRoute: AuthenticatedAppCalendarRoute,
+  AuthenticatedAppStatsRoute: AuthenticatedAppStatsRoute,
+  AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

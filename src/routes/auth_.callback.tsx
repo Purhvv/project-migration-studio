@@ -26,7 +26,7 @@ function Callback() {
       const { data, error: failure } = await supabase.auth.getUser();
       if (!active) return;
       if (failure || !data.user?.email_confirmed_at) setError("Не удалось подтвердить вход. Откройте свежую ссылку из письма или войдите снова.");
-      else await navigate({ to: "/account", replace: true });
+      else await navigate({ to: "/app", replace: true });
     }
     void finish();
     return () => { active = false; };

@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Bell, CalendarPlus, Clock, MapPin } from "lucide-react";
 import { format, isSameMonth, parseISO } from "date-fns";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { useAuth, wantsDemo } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { WorkplaceRevenue } from "@/components/shared/WorkplaceRevenue";
 import { WorkplaceFilter } from "@/components/shared/WorkplaceFilter";
@@ -33,6 +35,11 @@ function greeting() {
 }
 
 function Home() {
+  const auth = useAuth();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!auth.loading && auth.user && !wantsDemo()) void navigate({ to: "/app", replace: true });
+  }, [auth.loading, auth.user, navigate]);
   const { data: profile } = useProfile();
   const shifts = useShifts();
   const [workplace, setWorkplace] = useState("all");
