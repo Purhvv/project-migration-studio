@@ -69,7 +69,7 @@ function Account() {
           <Section title="Работа">
             <Panel className="divide-y overflow-hidden">
               <SettingsRow icon={Target} label="Мои цели" onClick={() => setOpen("goals")} />
-              <SettingsRow icon={Briefcase} label="Мои рабочие места" hint={`${data.workplaces.length} активных`} onClick={() => setOpen("workplaces")} />
+              <SettingsRow icon={Briefcase} label="Мои рабочие места" hint={`${data?.workplaces.length ?? 0} активных`} onClick={() => setOpen("workplaces")} />
               <SettingsRow icon={Coins} label="Ставки" onClick={() => setOpen("rates")} />
               <SettingsRow icon={Percent} label="Процент от выручки" onClick={() => setOpen("commission")} />
             </Panel>

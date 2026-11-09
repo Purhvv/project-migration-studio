@@ -69,5 +69,5 @@ export const accountWrite = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { data: result, error } = await context.supabase.rpc("shiftly_write", { p_key: data.key, p_type: data.type, p_payload: data.payload as never });
     if (error) throw new Error(writeErrorMessage(`${error.code ?? ""} ${error.message}`));
-    return result as Record<string, unknown> | null;
+    return { ok: true as const, saved: result !== null };
   });
