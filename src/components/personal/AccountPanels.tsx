@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Briefcase, Check, Plus, Trash2, Archive } from "lucide-react";
+import { Briefcase, Check, Plus, Trash2, Archive, ArrowLeft, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { accountWrite } from "@/lib/account.functions";
-import { profileEditPayload, publishCommissionPayload, publishRatesPayload, validGoal, workplaceEditPayload, type AccountCommission, type AccountSettings, type AccountWorkplace, type GoalKey, type HourlyDraft, type ProfileOperation } from "@/lib/account-settings";
+import { profileEditPayload, publishCommissionPayload, publishRatesPayload, validGoal, workplaceEditPayload, type AccountCommission, type AccountSettings, type AccountWorkplace, type GoalKey, type ProfileOperation } from "@/lib/account-settings";
 import { supabase } from "@/integrations/supabase/client";
 import { authError } from "@/lib/auth";
+import { rateDraftError, selectRateVersions, validRateDate, workplaceToday, type HourlyDraft } from "@/lib/account-rates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/shared/NumberInput";
@@ -106,6 +107,9 @@ export function GoalsPanel({ settings, userId }: Ctx) {
 export function WorkplacesPanel({ settings, userId }: Ctx) {
   const [editing, setEditing] = useState<AccountWorkplace | "new" | null>(null);
   const save = useAccountWrite(userId);
+  const [ratesId, setRatesId] = useState<string | null>(null);
+  const ratesWorkplace = settings.workplaces.find((w) => w.id === ratesId);
+  if (ratesWorkplace) return <div className="space-y-4"><Button variant="ghost" onClick={() => setRatesId(null)}><ArrowLeft />Мои рабочие места</Button><h3 className="font-semibold">{ratesWorkplace.name} · Ставки</h3><RatesEditor workplace={ratesWorkplace} userId={userId} /></div>;
   if (editing) return <WorkplaceEditor userId={userId} initial={editing === "new" ? null : editing} onDone={() => setEditing(null)} />;
   return (
     <div className="space-y-3">
@@ -118,7 +122,7 @@ export function WorkplacesPanel({ settings, userId }: Ctx) {
                 <p className="truncate text-sm font-medium">{w.name}</p>
                 <p className="text-xs text-muted-foreground">Цель по выручке: <Money value={w.revenue_goal} /></p>
               </div>
-              <Button size="sm" variant="ghost" onClick={() => setEditing(w)}>Изменить</Button>
+              <div className="flex shrink-0 flex-col"><Button size="sm" variant="ghost" onClick={() => setRatesId(w.id)}>Ставки</Button><Button size="sm" variant="ghost" onClick={() => setEditing(w)}>Изменить</Button></div>
               <Button size="icon" variant="ghost" className="size-8" aria-label={`Архивировать ${w.name}`} disabled={save.isPending}
                 onClick={() => { if (window.confirm(`Архивировать «${w.name}»? История смен сохранится.`)) save.mutate({ type: "workplace_archive", payload: { id: w.id, expected_revision: w.revision } }); }}>
                 <Archive className="size-4" />
@@ -170,7 +174,6 @@ function WorkplaceEditor({ userId, initial, onDone }: { userId: string; initial:
   );
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
 const nextMonth = () => { const d = new Date(); d.setMonth(d.getMonth() + 1, 1); return d.toISOString().slice(0, 7); };
 
 function WorkplacePicker({ settings, value, onChange }: { settings: AccountSettings; value: string | null; onChange: (id: string) => void }) {
@@ -193,35 +196,63 @@ export function RatesPanel({ settings, userId }: Ctx) {
   return <div className="max-h-[65vh] space-y-4 overflow-y-auto"><WorkplacePicker settings={settings} value={wid} onChange={setWid} /><RatesEditor key={`${w.id}:${w.rates?.id ?? "none"}`} workplace={w} userId={userId} /></div>;
 }
 
-function RatesEditor({ workplace: w, userId }: { workplace: AccountWorkplace; userId: string }) {
-  const save = useAccountWrite(userId);
-  const initial: Array<{ start: string; end: string; hourly: string }> = (w.rates?.intervals ?? []).filter((i) => i.kind === "hourly").map((i) => ({ start: i.start_time ?? "10:00", end: i.end_time ?? "18:00", hourly: toInput(i.hourly) }));
-  const [rows, setRows] = useState(initial);
-  const [from, setFrom] = useState(today());
-  const parsed: HourlyDraft[] = rows.map((r) => ({ start: r.start, end: r.end, hourly: parseNumberInput(r.hourly) ?? NaN }));
-  const valid = parsed.length > 0 && parsed.every((r) => r.hourly > 0 && r.start && r.end && r.start !== r.end);
-  const fixed = (w.rates?.intervals ?? []).filter((i) => i.kind === "fixed");
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">{w.rates ? `Действующая версия №${w.rates.revision} с ${w.rates.effective_from}` : "Ставки не настроены — расчёт оплаты недоступен."}</p>
-      <Panel className="divide-y">
-        {rows.map((r, i) => (
-          <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-2 p-2">
-            <Input type="time" aria-label="С" className="min-w-0 px-2" value={r.start} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, start: e.target.value } : x)))} />
-            <Input type="time" aria-label="До" className="min-w-0 px-2" value={r.end} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, end: e.target.value } : x)))} />
-            <NumberInput aria-label="₽ в час" placeholder="₽/ч" className="min-w-0" value={r.hourly} onValueChange={(v) => setRows(rows.map((x, j) => (j === i ? { ...x, hourly: v } : x)))} />
-            <Button size="icon" variant="ghost" className="size-8" aria-label="Удалить интервал" onClick={() => setRows(rows.filter((_, j) => j !== i))}><Trash2 className="size-4" /></Button>
-          </div>
-        ))}
-        <button className="flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-primary" onClick={() => setRows([...rows, { start: "10:00", end: "18:00", hourly: "" }])}><Plus className="size-4" />Интервал ставки</button>
-      </Panel>
-      {fixed.length > 0 && <Note>Фиксированные выплаты ({fixed.map((f) => f.label).join(", ")}) сохранятся в новой версии.</Note>}
-      <div className="space-y-1.5"><Label>Новая версия действует с</Label><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
-      <Button className="w-full" disabled={save.isPending || !valid || !from}
-        onClick={() => save.mutate({ type: "publish_rates", payload: publishRatesPayload(w.id, from, parsed, fixed) })}>Опубликовать ставки</Button>
-      <Note>Изменение создаёт новую версию ставок; прошлые версии и завершённые смены не меняются. Если окончание раньше начала, интервал продолжается после полуночи.</Note>
+export function RatesEditor({ workplace: w, userId }: { workplace: AccountWorkplace; userId: string }) {
+  const versions = w.rateVersions ?? (w.rates ? [w.rates] : []);
+  const localToday = workplaceToday(w.timezone);
+  const { current, scheduled } = selectRateVersions(versions, localToday);
+  const [selected, setSelected] = useState<string>(current?.id ?? scheduled[0]?.id ?? "new");
+  const version = versions.find((v) => v.id === selected) ?? null;
+  return <div className="space-y-4">
+    <p className="text-sm text-muted-foreground">{current ? `Действующая версия №${current.revision} с ${current.effective_from}` : "Действующих ставок пока нет"}</p>
+    <div className="space-y-1.5"><Label>Версия ставок</Label>
+      <select aria-label="Версия ставок" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={selected} onChange={(e) => setSelected(e.target.value)}>
+        {current && <option value={current.id}>Действующая · с {current.effective_from}</option>}
+        {scheduled.map((v) => <option key={v.id} value={v.id}>Запланирована · с {v.effective_from}</option>)}
+        {versions.filter((v) => v.id !== current?.id && v.effective_from <= localToday).map((v) => <option key={v.id} value={v.id}>Прошлая №{v.revision} · с {v.effective_from}</option>)}
+        <option value="new">Новая версия</option>
+      </select>
     </div>
-  );
+    <RateVersionForm key={`${w.id}:${selected}:${version?.id ?? "new"}`} workplace={w} userId={userId} version={version} />
+  </div>;
+}
+
+function RateVersionForm({ workplace: w, userId, version }: { workplace: AccountWorkplace; userId: string; version: AccountWorkplace["rates"] }) {
+  const save = useAccountWrite(userId);
+  const [rows, setRows] = useState<HourlyDraft[]>((version?.intervals ?? []).filter((i) => i.kind === "hourly").map((i) => ({ label: i.label, start: i.start_time ?? "", end: i.end_time ?? "", hourly: toInput(i.hourly), weekdays: i.weekdays })));
+  const [from, setFrom] = useState(workplaceToday(w.timezone));
+  const fixed = (version?.intervals ?? []).filter((i) => i.kind === "fixed");
+  const error = rateDraftError(rows, fixed.length > 0);
+  function update(index: number, patch: Partial<HourlyDraft>) { setRows((old) => old.map((r, i) => i === index ? { ...r, ...patch } : r)); }
+  function publish(e: React.FormEvent) {
+    e.preventDefault();
+    if (error || !validRateDate(from)) return;
+    if (w.rateVersions?.some((v) => v.effective_from === from) || w.rates?.effective_from === from) { toast.error("На эту дату уже есть версия. Выберите другую дату."); return; }
+    if (version && !window.confirm(`Опубликовать новую версию с ${from}? Завершённые смены не изменятся.`)) return;
+    try { save.mutate({ type: "publish_rates", payload: publishRatesPayload(w.id, from, rows, fixed) }); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Проверьте ставки"); }
+  }
+  return <form className="space-y-4" onSubmit={publish}>
+    <fieldset disabled={save.isPending} className="min-w-0 space-y-3">
+      {!rows.length && <p className="py-3 text-center text-sm text-muted-foreground">Почасовых ставок нет</p>}
+      {rows.map((r, i) => <div key={i} className="space-y-2 rounded-xl border p-3">
+        <div className="flex items-center gap-2"><Input aria-label={`Название ставки ${i + 1}`} value={r.label} placeholder="Название ставки" maxLength={200} onChange={(e) => update(i, { label: e.target.value })} /><Button type="button" size="icon" variant="ghost" className="size-9 shrink-0" aria-label={`Удалить интервал ${i + 1}`} title="Удалить интервал" onClick={() => setRows(rows.filter((_, j) => j !== i))}><Trash2 className="size-4" /></Button></div>
+        <div className="grid grid-cols-2 gap-2"><div className="min-w-0 space-y-1"><Label>Начало</Label><Input type="time" aria-label={`Начало интервала ${i + 1}`} className="min-w-0 px-2" value={r.start} onChange={(e) => update(i, { start: e.target.value })} /></div><div className="min-w-0 space-y-1"><Label>Окончание</Label><Input type="time" aria-label={`Окончание интервала ${i + 1}`} className="min-w-0 px-2" value={r.end} onChange={(e) => update(i, { end: e.target.value })} /></div></div>
+        <div className="space-y-1"><Label>Оплата, ₽/час</Label><NumberInput aria-label={`Оплата ставки ${i + 1}`} placeholder="250" value={r.hourly} onValueChange={(hourly) => update(i, { hourly })} /></div>
+        {!!r.weekdays?.length && <Note>Дни: {r.weekdays.map((d) => ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"][d]).join(", ")}</Note>}
+      </div>)}
+      <Button type="button" variant="secondary" className="w-full" onClick={() => setRows([...rows, { label: "", start: "08:00", end: "17:00", hourly: "", weekdays: [] }])}><Plus />Добавить интервал</Button>
+      {error && rows.length > 0 && <p role="alert" className="text-xs text-negative">{error}</p>}
+      {fixed.length > 0 && <Note>Фиксированные выплаты сохранятся без изменений.</Note>}
+      <fieldset className="space-y-2"><legend className="mb-2 text-xs text-muted-foreground">Применение изменений</legend>
+        <label className="flex items-start gap-2 text-sm"><input type="radio" name="rate-application" checked readOnly className="mt-1 accent-primary" />Только с указанной даты</label>
+        <label className="flex items-start gap-2 text-sm text-muted-foreground"><input type="radio" name="rate-application" disabled className="mt-1" />Пересчитать прошлые смены — недоступно</label>
+      </fieldset>
+      <div className="space-y-1.5"><Label>Новая версия действует с</Label><Input type="date" aria-label="Дата начала ставок" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
+      {!validRateDate(from) && <p role="alert" className="text-xs text-negative">Укажите корректную дату</p>}
+      <Button type="submit" className="w-full" disabled={save.isPending || !!error || !validRateDate(from)}>{save.isPending && <LoaderCircle className="size-4 animate-spin" />}{save.isPending ? "Сохраняем…" : "Опубликовать ставки"}</Button>
+    </fieldset>
+    <Note>Завершённые смены сохраняют прежний расчёт. Серверная операция пересчёта истории пока не реализована.</Note>
+  </form>;
 }
 
 export function CommissionPanel({ settings, userId }: Ctx) {
