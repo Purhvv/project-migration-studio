@@ -57,3 +57,7 @@
 - [x] По новому разрешению применены девять миграций штатным supabase.migration в исходном порядке; все вызовы успешны.
 - [x] Десятая forward-only миграция 20261109122351_c0028176-a11a-42d3-93d5-ee45a157c1a6.sql: владельцы всех 12 таблиц фактически postgres; опасные права сняты на таблицах и public defaults этого владельца; service_role/чтение/RPC сохранены. Rollback-файл запрещает откат безопасности.
 - [x] Read-only проверка установленных прав: 12 RLS таблиц, anon/authenticated без TRUNCATE/REFERENCES/TRIGGER; authenticated без прямого DML, с SELECT; service_role сохраняет все семь проверенных прав. Предупреждение лinter о предусмотренном SECURITY DEFINER RPC сохранено, исходная модель не переписана.
+
+# Этап 3.2 — профиль при регистрации
+- [x] Миграция №11 20261109122954_438fc5b2-44dc-422d-9322-695ed48a933b.sql применена к tuvvsgwlafpynnloeoyd: auth.users AFTER INSERT создаёт profiles по NEW.id, безопасное имя, ON CONFLICT DO NOTHING, fail-closed транзакция.
+- [x] Rollback удаляет только новый триггер/функцию; не запускался. Однократная проверка каталога: trigger enabled, SECURITY DEFINER, пустой search_path, anon/authenticated без EXECUTE и INSERT profiles. Регистрация end-to-end не запускалась; UI Auth и прежняя модель не менялись.
