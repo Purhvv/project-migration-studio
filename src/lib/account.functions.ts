@@ -1,7 +1,7 @@
 import { createServerFn, createMiddleware } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { selectRateVersions, validateRatePublication, workplaceToday } from "@/lib/account-rates";
-import { isProfileOperation, writeErrorMessage, type AccountSettings, type AccountWorkplace, type AccountInterval, type ProfileOperation } from "@/lib/account-settings";
+import { isProfileOperation, validateWorkplaceEdit, writeErrorMessage, type AccountSettings, type AccountWorkplace, type AccountInterval, type ProfileOperation } from "@/lib/account-settings";
 
 // The generated middleware checks claims. This additional boundary confirms the
 // account with Auth, including revocation/deletion, before private reads.
@@ -67,10 +67,15 @@ export const accountWrite = createServerFn({ method: "POST" })
     if (typeof input.key !== "string" || !/^[0-9a-f-]{36}$/i.test(input.key)) throw new Error("Некорректный ключ операции");
     if (!input.payload || typeof input.payload !== "object" || Array.isArray(input.payload) || "user_id" in input.payload) throw new Error("Некорректные данные");
     if (input.type === "publish_rates") validateRatePublication(input.payload);
+    if (input.type === "workplace_edit") validateWorkplaceEdit(input.payload);
     return input;
   })
   .handler(async ({ context, data }) => {
     const { data: result, error } = await context.supabase.rpc("shiftly_write", { p_key: data.key, p_type: data.type, p_payload: data.payload as never });
-    if (error) throw new Error(writeErrorMessage(`${error.code ?? ""} ${error.message}`));
+    if (error) {
+      // Server-only diagnostics; never log bearer tokens or the user's request payload.
+      console.error("Shiftly account write failed", { operation: data.type, code: error.code, message: error.message, details: error.details, hint: error.hint });
+      throw new Error(writeErrorMessage(`${error.code ?? ""} ${error.message}`, data.type));
+    }
     return { ok: true as const, saved: result !== null };
   });
