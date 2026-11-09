@@ -1,4 +1,5 @@
 import type { WorkplaceColor } from "@/lib/types";
+export { publishRatesPayload, type HourlyDraft } from "@/lib/account-rates";
 
 /** Only these approved shiftly_write operations are reachable from the personal profile. */
 export const PROFILE_OPERATIONS = ["profile_edit", "workplace_edit", "workplace_archive", "publish_rates", "publish_commission"] as const;
@@ -10,7 +11,7 @@ export type AccountProfile = { id: string; name: string; currency: string; timez
 export type AccountInterval = { id: string; kind: "hourly" | "fixed"; start_time: string | null; end_time: string | null; hourly: number | null; fixed_amount: number | null; label: string; weekdays: number[]; sort_order: number };
 export type AccountRateVersion = { id: string; effective_from: string; revision: number; intervals: AccountInterval[] };
 export type AccountCommission = { id: string; effective_from: string; revision: number; mode: "none" | "fixed" | "thresholds"; fixed_percent: number | null; thresholds: Array<{ from_amount: number; percent: number }> };
-export type AccountWorkplace = { id: string; name: string; color: WorkplaceColor; timezone: string; revenue_goal: number | null; revision: number; rates: AccountRateVersion | null; commission: AccountCommission | null };
+export type AccountWorkplace = { id: string; name: string; color: WorkplaceColor; timezone: string; revenue_goal: number | null; revision: number; rates: AccountRateVersion | null; rateVersions?: AccountRateVersion[]; commission: AccountCommission | null };
 export type AccountSettings = { profile: AccountProfile; workplaces: AccountWorkplace[] };
 
 export type GoalKey = "monthly_goal" | "hours_goal" | "shifts_goal";
@@ -34,17 +35,6 @@ export function workplaceEditPayload(initial: Pick<AccountWorkplace, "id" | "rev
   if (revenueGoal !== null && (!Number.isFinite(revenueGoal) || revenueGoal <= 0)) throw new Error("Цель по выручке должна быть больше 0");
   const base = { name: trimmed, color, revenue_goal: revenueGoal };
   return initial ? { id: initial.id, expected_revision: initial.revision, ...base } : { id: newId(), ...base };
-}
-
-export type HourlyDraft = { start: string; end: string; hourly: number };
-
-/** Rates are versioned: a change publishes a new version; existing fixed payments are carried over unchanged. */
-export function publishRatesPayload(workplaceId: string, effectiveFrom: string, hourly: HourlyDraft[], keepFixed: AccountInterval[]) {
-  const intervals = [
-    ...hourly.map((r, i) => ({ kind: "hourly", start_time: r.start, end_time: r.end, hourly: r.hourly, fixed_amount: null, label: `${r.start}–${r.end}`, weekdays: [], sort_order: i })),
-    ...keepFixed.filter((f) => f.kind === "fixed").map((f, i) => ({ kind: "fixed", start_time: null, end_time: null, hourly: null, fixed_amount: f.fixed_amount, label: f.label, weekdays: f.weekdays, sort_order: hourly.length + i })),
-  ];
-  return { workplace_id: workplaceId, effective_from: effectiveFrom, note: null, acknowledge_overlap: false, intervals };
 }
 
 /** Commission versions start on the first day of a month. */
