@@ -31,11 +31,14 @@ describe("commission editor protected writes", () => {
   it("adds zero and reported revenue thresholds without numeric conversion", async () => {
     write.mockResolvedValue({ ok: true, saved: true });
     mount();
-    fireEvent.click(screen.getByRole("button", { name: "Пороги", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: /^Пороги$/ }));
     for (const [index, from, percent] of [[0, "0", "0"], [1, "1500000", "1.5"], [2, "1950000", "2"]] as const) {
-      fireEvent.click(screen.getByRole("button", { name: "Порог", exact: true }));
-      fireEvent.change(screen.getAllByLabelText("Выручка от, ₽")[index], { target: { value: from } });
-      fireEvent.change(screen.getAllByLabelText("Процент")[index], { target: { value: percent } });
+      fireEvent.click(screen.getByRole("button", { name: /^Порог$/ }));
+      const amountInput = screen.getAllByLabelText("Выручка от, ₽")[index];
+      const percentInput = screen.getAllByLabelText("Процент")[index];
+      if (!amountInput || !percentInput) throw new Error("Threshold inputs missing");
+      fireEvent.change(amountInput, { target: { value: from } });
+      fireEvent.change(percentInput, { target: { value: percent } });
     }
     fireEvent.click(screen.getByRole("button", { name: "Опубликовать правило" }));
     await waitFor(() => expect(write).toHaveBeenCalledOnce());
