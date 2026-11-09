@@ -2,7 +2,7 @@ import { useRouter } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { format } from "date-fns";
-import { AlertTriangle, ChevronLeft, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronLeft, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { NumberInput } from "@/components/shared/NumberInput";
 import { Money, Panel } from "@/components/shared/primitives";
 import { STATUS_META, StatusIcon, WorkplaceDot } from "@/components/shifts/shift-ui";
 import { accountWrite } from "@/lib/account.functions";
-import { estimateAccountPay, findAccountConflicts, shiftCreatePayload, shiftDeletePayload, shiftEditPayload, shiftTimeFields, type AccountConflict, type AccountShift } from "@/lib/account-shifts";
+import { classifyShiftTiming, estimateAccountPay, findAccountConflicts, shiftCreateCompletedPayload, shiftCreatePayload, shiftDeletePayload, shiftEditPayload, shiftTimeFields, type AccountConflict, type AccountShift, type AdjustmentDraft } from "@/lib/account-shifts";
 import type { AccountWorkplace } from "@/lib/account-settings";
 import { formatHours, fmtDate, shiftMinutes } from "@/lib/format";
 
@@ -37,12 +38,16 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
   const [start, setStart] = useState(initial?.start_time ?? "12:00");
   const [end, setEnd] = useState(initial?.end_time ?? "22:00");
   const [comment, setComment] = useState(initial?.comment ?? "");
+  const [revenue, setRevenue] = useState("");
+  const [tips, setTips] = useState("");
+  const [bonuses, setBonuses] = useState<AdjustmentDraft[]>([]);
+  const [penalties, setPenalties] = useState<AdjustmentDraft[]>([]);
   const [conflicts, setConflicts] = useState<AccountConflict[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const workplace = workplaces.find((w) => w.id === workplaceId);
   const mutation = useMutation({
-    mutationFn: (input: { type: "shift_create" | "shift_edit"; payload: Record<string, unknown> }) =>
+    mutationFn: (input: { type: "shift_create" | "shift_create_completed" | "shift_edit"; payload: Record<string, unknown> }) =>
       write({ data: { key: crypto.randomUUID(), type: input.type, payload: input.payload } }),
     onSuccess: async () => {
       toast.success(initial ? "Смена обновлена" : "Смена сохранена");
@@ -75,13 +80,36 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
     const found = findAccountConflicts({ id: initial?.id ?? null, starts_at: time.starts_at, ends_at: time.ends_at }, shifts);
     if (found.length) { setConflicts(found); return; }
     setConflicts([]);
-    mutation.mutate(initial
-      ? { type: "shift_edit", payload: shiftEditPayload(initial, { workplace, date, start, end }, comment) }
-      : { type: "shift_create", payload: shiftCreatePayload({ workplace, date, start, end }, comment) });
+    if (initial) {
+      mutation.mutate({ type: "shift_edit", payload: shiftEditPayload(initial, { workplace, date, start, end }, comment) });
+      return;
+    }
+    if (timing === "past") {
+      try {
+        mutation.mutate({ type: "shift_create_completed", payload: shiftCreateCompletedPayload({ workplace, date, start, end }, { revenue, tips, adjustments: [...bonuses, ...penalties] }, comment) });
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Проверьте финансовые данные.");
+      }
+      return;
+    }
+    mutation.mutate({ type: "shift_create", payload: shiftCreatePayload({ workplace, date, start, end }, comment) });
   };
 
   const estimate = workplace && start && end && start !== end ? estimateAccountPay(workplace, date, start, end) : null;
   const showEstimate = !initial || initial.status === "planned" || initial.status === "in_progress" || initial.status === "pending";
+  // A brand-new shift whose end has already passed (workplace timezone) is saved as completed with finances at once.
+  let timing: "past" | "current" | "future" = "future";
+  if (!initial && workplace && start && end && start !== end) {
+    try {
+      const t = shiftTimeFields({ workplace, date, start, end });
+      timing = classifyShiftTiming(t.starts_at, t.ends_at);
+    } catch { timing = "future"; }
+  }
+  const asCompleted = !initial && timing === "past";
+  const money = (v: string) => (v.trim() ? Number(v.trim().replace(",", ".")) : 0);
+  const bonusSum = bonuses.reduce((s, b) => s + money(b.amount), 0);
+  const penaltySum = penalties.reduce((s, p) => s + money(p.amount), 0);
+  const knownTotal = estimate?.amount != null ? estimate.amount + money(tips) + bonusSum - penaltySum : null;
 
   return (
     <form onSubmit={submit} className="space-y-6 px-5 pt-4 pb-6">
@@ -127,6 +155,34 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
 
       <Field label="Комментарий"><Textarea aria-label="Комментарий" rows={2} placeholder="Необязательно" value={comment} onChange={(e) => setComment(e.target.value)} /></Field>
 
+      {asCompleted && (
+        <Panel className="space-y-4 p-4">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <StatusIcon status="completed" />
+            <span>Смена уже завершилась — сохранится как завершённая</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="min-w-0 text-muted-foreground">Базовая оплата по ставкам</span>
+            <Money value={estimate?.amount ?? null} className="shrink-0 font-semibold" />
+          </div>
+          {estimate && !estimate.hasRates && <p className="text-xs text-muted-foreground">Для этого места на дату смены нет действующих ставок — базовая оплата неизвестна.</p>}
+          {estimate?.hasRates && estimate.uncoveredMinutes > 0 && (
+            <p className="text-xs text-muted-foreground">{formatHours(estimate.uncoveredMinutes)} смены не покрыты ставками и не учтены в сумме.</p>
+          )}
+          <Field label="Выручка"><NumberInput aria-label="Выручка" placeholder="Неизвестна" value={revenue} onValueChange={setRevenue} /></Field>
+          <Field label="Личные чаевые"><NumberInput aria-label="Личные чаевые" placeholder="Неизвестны" value={tips} onValueChange={setTips} /></Field>
+          <AdjustmentList title="Премии" items={bonuses} onChange={setBonuses} kind="bonus" />
+          <AdjustmentList title="Штрафы" items={penalties} onChange={setPenalties} kind="penalty" />
+          <div className="space-y-1.5 border-t pt-3">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0 font-medium">Итог заработка</span>
+              <Money value={knownTotal} className="shrink-0 font-semibold" />
+            </div>
+            <p className="text-xs text-muted-foreground">Базовая оплата + чаевые + премии − штрафы. Процент от выручки добавится по правилам месяца после сохранения; выручка сама в заработок не входит.</p>
+          </div>
+        </Panel>
+      )}
+
       {conflicts.length > 0 && (
         <div className="space-y-2 rounded-2xl border border-negative/40 bg-negative/5 p-4">
           <p className="flex items-center gap-2 text-sm font-medium text-negative"><AlertTriangle className="size-4 shrink-0" />Пересечение с другой сменой</p>
@@ -140,7 +196,7 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
       )}
 
       <div className="space-y-3 rounded-2xl border bg-card p-4">
-        {showEstimate && estimate && (
+        {showEstimate && !asCompleted && estimate && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="min-w-0 text-muted-foreground">Предварительная оплата по ставке</span>
@@ -153,7 +209,7 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
             <p className="text-xs text-muted-foreground">Без чаевых, процента от выручки, премий и штрафов.</p>
           </div>
         )}
-        <Button type="submit" disabled={mutation.isPending || deletion.isPending || !workplaces.length} className="w-full" size="lg">Сохранить смену</Button>
+        <Button type="submit" disabled={mutation.isPending || deletion.isPending || !workplaces.length} className="w-full" size="lg">{asCompleted ? "Сохранить завершённую смену" : "Сохранить смену"}</Button>
         {initial && (
           <Button type="button" variant="ghost" className="w-full text-negative" onClick={() => setConfirmDelete(true)} disabled={mutation.isPending || deletion.isPending}>
             <Trash2 className="size-4" />Удалить смену
@@ -185,6 +241,30 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="min-w-0 space-y-1.5">
       <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
+    </div>
+  );
+}
+
+/** Editable list of bonuses or penalties: several named entries, amount may stay unknown. */
+function AdjustmentList({ title, items, onChange, kind }: { title: string; items: AdjustmentDraft[]; onChange: (items: AdjustmentDraft[]) => void; kind: AdjustmentDraft["kind"] }) {
+  const update = (index: number, patch: Partial<AdjustmentDraft>) => onChange(items.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-xs text-muted-foreground">{title}</Label>
+        <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => onChange([...items, { kind, label: "", amount: "" }])}>
+          <Plus className="size-3.5" />Добавить
+        </Button>
+      </div>
+      {items.map((item, index) => (
+        <div key={index} className="flex items-start gap-2">
+          <Input aria-label={`${title}: название ${index + 1}`} placeholder="Название" value={item.label} onChange={(e) => update(index, { label: e.target.value })} className="min-w-0 flex-1" />
+          <NumberInput aria-label={`${title}: сумма ${index + 1}`} placeholder="Сумма" value={item.amount} onValueChange={(v) => update(index, { amount: v })} className="w-28 shrink-0" />
+          <Button type="button" variant="ghost" size="icon" aria-label={`Удалить ${index + 1}`} onClick={() => onChange(items.filter((_, i) => i !== index))}>
+            <X className="size-4" />
+          </Button>
+        </div>
+      ))}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  estimateAccountPay, findAccountConflicts, localToUtc, shiftCancelPayload, shiftCompletePayload,
-  shiftCreatePayload, shiftDeletePayload, shiftEditPayload, shiftEndDate, shiftStartPayload,
+  classifyShiftTiming, cleanMoney, estimateAccountPay, findAccountConflicts, localToUtc, shiftCancelPayload, shiftCompletePayload,
+  shiftCreateCompletedPayload, shiftCreatePayload, shiftDeletePayload, shiftEditPayload, shiftEndDate, shiftStartPayload,
   validateShiftWrite, type AccountShift,
 } from "@/lib/account-shifts";
 import type { AccountWorkplace } from "@/lib/account-settings";
@@ -100,6 +100,70 @@ describe("validateShiftWrite (server boundary)", () => {
     expect(() => validateShiftWrite("shift_create", { ...base, override_conflicts: true })).toThrow();
     expect(() => validateShiftWrite("shift_create", { ...base, revenue: "100" })).toThrow();
     expect(() => validateShiftWrite("shift_create", { ...base, adjustments: [{ kind: "bonus" }] })).toThrow();
+  });
+});
+
+describe("classifyShiftTiming", () => {
+  const now = Date.parse("2026-11-10T12:00:00.000Z");
+  it("marks a fully ended shift as past, including overnight ones", () => {
+    expect(classifyShiftTiming("2026-11-10T09:00:00.000Z", "2026-11-10T11:00:00.000Z", now)).toBe("past");
+    expect(classifyShiftTiming("2026-11-09T19:00:00.000Z", "2026-11-10T03:00:00.000Z", now)).toBe("past");
+  });
+  it("marks a started but unfinished shift as current and a later one as future", () => {
+    expect(classifyShiftTiming("2026-11-10T09:00:00.000Z", "2026-11-10T19:00:00.000Z", now)).toBe("current");
+    expect(classifyShiftTiming("2026-11-10T13:00:00.000Z", "2026-11-10T19:00:00.000Z", now)).toBe("future");
+  });
+});
+
+describe("cleanMoney", () => {
+  it("keeps canonical decimal strings and maps empty input to NULL", () => {
+    expect(cleanMoney("1500")).toBe("1500");
+    expect(cleanMoney(" 250.50 ")).toBe("250.50");
+    expect(cleanMoney("")).toBeNull();
+    expect(cleanMoney("   ")).toBeNull();
+  });
+  it("rejects non-canonical or out-of-range sums instead of coercing them", () => {
+    expect(() => cleanMoney("1.005")).toThrow();
+    expect(() => cleanMoney("-100")).toThrow();
+    expect(() => cleanMoney("1e6")).toThrow();
+    expect(() => cleanMoney("1000000000000")).toThrow();
+  });
+});
+
+describe("shiftCreateCompletedPayload", () => {
+  const fin = { revenue: "18000", tips: "600", adjustments: [
+    { kind: "bonus" as const, label: " За выходной ", amount: "500" },
+    { kind: "penalty" as const, label: "Опоздание", amount: "" },
+  ] };
+  it("carries decimal-string money and named adjustments; unknown sums stay NULL", () => {
+    const p = shiftCreateCompletedPayload(time, fin, "", () => "33333333-3333-3333-3333-333333333333");
+    expect(p).toMatchObject({
+      id: "33333333-3333-3333-3333-333333333333",
+      workplace_id: workplace.id,
+      starts_at: "2026-11-10T09:00:00.000Z",
+      ends_at: "2026-11-10T19:00:00.000Z",
+      revenue: "18000", tips: "600", fixed_payments: [], override_conflicts: false,
+    });
+    expect(p.adjustments).toEqual([
+      { kind: "bonus", label: "За выходной", amount: "500", comment: null, sort_order: 0 },
+      { kind: "penalty", label: "Опоздание", amount: null, comment: null, sort_order: 1 },
+    ]);
+  });
+  it("rejects unnamed adjustments and bad money before the server boundary", () => {
+    expect(() => shiftCreateCompletedPayload(time, { revenue: "1.005", tips: "", adjustments: [] }, "")).toThrow();
+    expect(() => shiftCreateCompletedPayload(time, { revenue: "", tips: "", adjustments: [{ kind: "bonus", label: " ", amount: "100" }] }, "")).toThrow();
+  });
+  it("passes the server-boundary validation, unlike a planned create with money", () => {
+    const p = shiftCreateCompletedPayload(time, fin, "", () => "33333333-3333-3333-3333-333333333333");
+    expect(() => validateShiftWrite("shift_create_completed", p)).not.toThrow();
+    expect(() => validateShiftWrite("shift_create", p)).toThrow();
+  });
+  it("boundary rejects JSON numbers, unknown adjustment kinds and fixed payments", () => {
+    const p = shiftCreateCompletedPayload(time, fin, "", () => "33333333-3333-3333-3333-333333333333") as Record<string, unknown>;
+    expect(() => validateShiftWrite("shift_create_completed", { ...p, revenue: 18000 })).toThrow();
+    expect(() => validateShiftWrite("shift_create_completed", { ...p, adjustments: [{ kind: "fine", label: "x", amount: "1" }] })).toThrow();
+    expect(() => validateShiftWrite("shift_create_completed", { ...p, fixed_payments: [{ rate_interval_id: "x" }] })).toThrow();
+    expect(() => validateShiftWrite("shift_create_completed", { ...p, expected_revision: 1 })).not.toThrow();
   });
 });
 

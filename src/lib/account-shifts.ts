@@ -99,6 +99,49 @@ export function shiftCreatePayload(time: ShiftTimeInput, comment: string, newId:
   };
 }
 
+/** Canonical decimal string accepted by the RPC money contract; empty input means unknown → NULL. */
+export const MONEY_PATTERN = /^[0-9]+(\.[0-9]{1,2})?$/;
+const MONEY_MAX = 999999999999.99;
+
+/** Decimal-string money for the RPC: trims, rejects JSON numbers and out-of-range sums, keeps NULL for unknown. */
+export function cleanMoney(value: string): string | null {
+  const trimmed = value.trim().replace(",", ".");
+  if (!trimmed) return null;
+  if (!MONEY_PATTERN.test(trimmed) || Number(trimmed) > MONEY_MAX) throw new Error("Сумма: от 0 до 999 999 999 999,99 ₽, не более двух знаков после запятой.");
+  return trimmed;
+}
+
+export type AdjustmentDraft = { kind: "bonus" | "penalty"; label: string; amount: string };
+
+/** Timing of a new shift against the current moment, on real UTC instants (overnight already resolved). */
+export function classifyShiftTiming(starts_at: string, ends_at: string, now: number = Date.now()): "past" | "current" | "future" {
+  const start = Date.parse(starts_at);
+  const end = Date.parse(ends_at);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return "future";
+  if (end <= now) return "past";
+  if (start > now) return "future";
+  return "current";
+}
+
+/** shift_create_completed: an already-finished shift saved atomically as completed with its financial data. */
+export function shiftCreateCompletedPayload(time: ShiftTimeInput, fin: { revenue: string; tips: string; adjustments: AdjustmentDraft[] }, comment: string, newId: () => string = () => crypto.randomUUID()) {
+  const adjustments = fin.adjustments.map((a, index) => {
+    const label = a.label.trim();
+    if (!label) throw new Error("Укажите название премии или штрафа.");
+    return { kind: a.kind, label: label.slice(0, 200), amount: cleanMoney(a.amount), comment: null, sort_order: index };
+  });
+  return {
+    id: newId(),
+    ...shiftTimeFields(time),
+    revenue: cleanMoney(fin.revenue),
+    tips: cleanMoney(fin.tips),
+    comment: cleanComment(comment),
+    adjustments,
+    fixed_payments: [] as unknown[],
+    override_conflicts: false,
+  };
+}
+
 /** shift_edit: time set is always complete; revenue/tips are omitted so the RPC keeps stored values. */
 export function shiftEditPayload(shift: Pick<AccountShift, "id" | "revision">, time: ShiftTimeInput, comment: string) {
   return {
@@ -136,13 +179,13 @@ export const shiftCancelPayload = (shift: Pick<AccountShift, "id" | "revision">,
 export const shiftDeletePayload = (shift: Pick<AccountShift, "id" | "revision">) =>
   ({ id: shift.id, expected_revision: shift.revision });
 
-export type ShiftOperation = "shift_create" | "shift_edit" | "shift_complete" | "shift_delete" | "shift_start" | "shift_cancel";
-export const SHIFT_OPERATIONS: readonly ShiftOperation[] = ["shift_create", "shift_edit", "shift_complete", "shift_delete", "shift_start", "shift_cancel"];
+export type ShiftOperation = "shift_create" | "shift_create_completed" | "shift_edit" | "shift_complete" | "shift_delete" | "shift_start" | "shift_cancel";
+export const SHIFT_OPERATIONS: readonly ShiftOperation[] = ["shift_create", "shift_create_completed", "shift_edit", "shift_complete", "shift_delete", "shift_start", "shift_cancel"];
 
 /** Server-boundary validation for shift payloads; the DB still enforces ownership, revisions and the status machine. */
 export function validateShiftWrite(type: ShiftOperation, payload: Record<string, unknown>) {
   if (typeof payload["id"] !== "string" || !uuidPattern.test(payload["id"])) throw new Error("Некорректные данные смены.");
-  if (type !== "shift_create") {
+  if (type !== "shift_create" && type !== "shift_create_completed") {
     const revision = payload["expected_revision"];
     if (typeof revision !== "number" || !Number.isInteger(revision) || revision < 1) throw new Error("Некорректная версия смены.");
   }
@@ -157,6 +200,22 @@ export function validateShiftWrite(type: ShiftOperation, payload: Record<string,
   if (!Number.isFinite(starts) || !Number.isFinite(ends) || ends <= starts) throw new Error("Проверьте дату и время смены.");
   if ("comment" in payload && payload["comment"] !== null && typeof payload["comment"] !== "string") throw new Error("Некорректный комментарий.");
   if (payload["override_conflicts"] !== false) throw new Error("Пересечения смен требуют явного подтверждения.");
+  if (type === "shift_create_completed") {
+    const validMoney = (v: unknown) => v === null || (typeof v === "string" && MONEY_PATTERN.test(v) && Number(v) <= 999999999999.99);
+    if ("revenue" in payload && !validMoney(payload["revenue"])) throw new Error("Выручка: сумма с точностью до копеек или пусто.");
+    if ("tips" in payload && !validMoney(payload["tips"])) throw new Error("Чаевые: сумма с точностью до копеек или пусто.");
+    if ("fixed_payments" in payload && (!Array.isArray(payload["fixed_payments"]) || payload["fixed_payments"].length > 0)) throw new Error("Фиксированные выплаты появятся на следующем этапе.");
+    if ("adjustments" in payload) {
+      if (!Array.isArray(payload["adjustments"])) throw new Error("Некорректные премии и штрафы.");
+      for (const item of payload["adjustments"] as unknown[]) {
+        const a = item as Record<string, unknown>;
+        if (!a || typeof a !== "object" || (a["kind"] !== "bonus" && a["kind"] !== "penalty")) throw new Error("Некорректные премии и штрафы.");
+        if (typeof a["label"] !== "string" || !a["label"].trim()) throw new Error("Укажите название премии или штрафа.");
+        if (!validMoney(a["amount"])) throw new Error("Сумма премии или штрафа: с точностью до копеек или пусто.");
+      }
+    }
+    return;
+  }
   for (const key of ["adjustments", "fixed_payments"] as const) {
     if (key in payload && (!Array.isArray(payload[key]) || payload[key].length > 0)) throw new Error("Премии, штрафы и фиксированные выплаты появятся на следующем этапе.");
   }
