@@ -774,6 +774,10 @@ export type Database = {
         }
         Returns: Json
       }
+      shiftly_write: {
+        Args: { p_key: string; p_payload: Json; p_type: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
