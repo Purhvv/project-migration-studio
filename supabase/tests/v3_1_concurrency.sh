@@ -35,10 +35,9 @@ PORT="${TEST_DB_PORT:-}"
 # single caller-supplied opt-in survives as an explicit psql option.
 for name in $(compgen -e); do [[ "$name" == PG* ]] && unset "$name"; done
 export PGOPTIONS='-c app.shiftly_test_env=on -c statement_timeout=30000 -c lock_timeout=15000'
-export PGSERVICEFILE=/dev/null PGPASSFILE=/dev/null PGCONNECT_TIMEOUT=5
+export PGSERVICEFILE=/dev/null PGCONNECT_TIMEOUT=5
 BASE=(-X -w -h "$ROOT" -p "$PORT" -U postgres -v ON_ERROR_STOP=1 -v VERBOSITY=verbose)
 psql_run() { psql "${BASE[@]}" -d "$DB" -q -t -A "$@"; }
-DSN="host=$ROOT port=$PORT user=postgres dbname=$DB"
 # Metadata is installed only by the independent owner of a fresh test cluster.
 # Read-only checks verify actual server address, database, physical directory,
 # version, roles, minimal Auth shape, hosted markers and all row counts.
@@ -51,7 +50,7 @@ BEGIN
  IF inet_server_addr() IS NOT NULL OR current_database() <> current_setting('shiftly.expected_db')
     OR current_setting('data_directory') <> current_setting('shiftly.expected_root') || '/data'
     OR current_setting('listen_addresses') <> '' OR current_setting('server_version') <> '17.11'
-    OR obj_description((SELECT oid FROM pg_database WHERE datname=current_database()), 'pg_database')
+    OR shobj_description((SELECT oid FROM pg_database WHERE datname=current_database()), 'pg_database')
        IS DISTINCT FROM 'shiftly-disposable-local-v1'
     OR current_setting('app.shiftly_test_env', true) IS DISTINCT FROM 'on' THEN
   RAISE EXCEPTION 'REFUSED: actual endpoint/version/disposable metadata mismatch';
@@ -122,13 +121,18 @@ SELECT public.shiftly_write(gen_random_uuid(), 'publish_rates', jsonb_build_obje
  'workplace_id', '$W', 'effective_from', '2026-07-01', 'intervals', jsonb_build_array(
   jsonb_build_object('kind','hourly','start_time','00:00','end_time','23:59','hourly','150','label','july'))));
 SQL
+P1=$!
 psql "${BASE[@]}" -d "$DB" -q >"$TMP/c1b.out" 2>&1 <<SQL &
 SELECT set_config('request.jwt.claim.sub', '$U', false);
 SELECT public.shiftly_write(gen_random_uuid(), 'publish_rates', jsonb_build_object(
  'workplace_id', '$W', 'effective_from', '2026-08-01', 'intervals', jsonb_build_array(
   jsonb_build_object('kind','hourly','start_time','00:00','end_time','23:59','hourly','175','label','august'))));
 SQL
-wait
+P2=$!
+R1=0; R2=0
+wait "$P1" || R1=$?
+wait "$P2" || R2=$?
+[ "$R1" -eq 0 ] && [ "$R2" -eq 0 ] || { echo 'FAIL C1: child process failed'; cat "$TMP"/c1*.out; exit 1; }
 REVS="$(psql_run -c "SELECT string_agg(revision::text, ',' ORDER BY revision) FROM public.rate_versions WHERE workplace_id = '$W';")"
 [ "$REVS" = "1,2,3" ] || { echo "FAIL C1: expected revisions 1,2,3; got $REVS"; cat "$TMP"/c1*.out; exit 1; }
 echo "C1 OK: revisions $REVS, no duplicates"
@@ -146,21 +150,25 @@ SELECT set_config('request.jwt.claim.sub', '$U', false);
 SELECT public.shiftly_write(gen_random_uuid(), 'shift_edit',
  jsonb_build_object('id', '$SID', 'expected_revision', 1, 'tips', '10'));
 SQL
+P1=$!
 psql "${BASE[@]}" -d "$DB" -q >"$TMP/c2b.out" 2>&1 <<SQL &
 SELECT set_config('request.jwt.claim.sub', '$U', false);
 SELECT public.shiftly_write(gen_random_uuid(), 'shift_edit',
  jsonb_build_object('id', '$SID', 'expected_revision', 1, 'tips', '20'));
 SQL
-set +e
-wait
-set -e
+P2=$!
+R1=0; R2=0
+wait "$P1" || R1=$?
+wait "$P2" || R2=$?
 C2_OK=0; C2_CONFLICT=0
-grep -q "shiftly_write" "$TMP/c2a.out" && ! grep -qi "ERROR" "$TMP/c2a.out" && C2_OK=$((C2_OK+1))
-grep -q "shiftly_write" "$TMP/c2b.out" && ! grep -qi "ERROR" "$TMP/c2b.out" && C2_OK=$((C2_OK+1))
-grep -qi "40001\|revision conflict" "$TMP/c2a.out" && C2_CONFLICT=$((C2_CONFLICT+1))
-grep -qi "40001\|revision conflict" "$TMP/c2b.out" && C2_CONFLICT=$((C2_CONFLICT+1))
+[ "$R1" -eq 0 ] && C2_OK=$((C2_OK+1))
+[ "$R2" -eq 0 ] && C2_OK=$((C2_OK+1))
+[ "$R1" -eq 3 ] && grep -q '40001' "$TMP/c2a.out" && C2_CONFLICT=$((C2_CONFLICT+1))
+[ "$R2" -eq 3 ] && grep -q '40001' "$TMP/c2b.out" && C2_CONFLICT=$((C2_CONFLICT+1))
 FINAL_REV="$(psql_run -c "SELECT revision FROM public.shifts WHERE id = '$SID';")"
-if [ "$C2_OK" -ne 1 ] || [ "$C2_CONFLICT" -ne 1 ] || [ "$FINAL_REV" != "2" ]; then
+FINAL_TIPS="$(psql_run -c "SELECT tips FROM public.shifts WHERE id = '$SID';")"
+EXPECTED_TIPS='20.00'; [ "$R1" -ne 0 ] || EXPECTED_TIPS='10.00'
+if [ "$C2_OK" -ne 1 ] || [ "$C2_CONFLICT" -ne 1 ] || [ "$FINAL_REV" != "2" ] || [ "$FINAL_TIPS" != "$EXPECTED_TIPS" ]; then
   echo "FAIL C2: winners=$C2_OK conflicts=$C2_CONFLICT final_revision=$FINAL_REV"; cat "$TMP"/c2*.out; exit 1
 fi
 echo "C2 OK: exactly one winner, one 40001 conflict, final revision 2"
@@ -178,28 +186,25 @@ SELECT set_config('request.jwt.claim.sub', '$U', false);
 SELECT public.shiftly_write(gen_random_uuid(), 'month_recalc',
  jsonb_build_object('workplace_id', '$W', 'month', '2026-05-01'));
 SQL
+P1=$!
 psql "${BASE[@]}" -d "$DB" -q >"$TMP/c3b.out" 2>&1 <<SQL &
 SELECT set_config('request.jwt.claim.sub', '$U', false);
 SELECT public.shiftly_write(gen_random_uuid(), 'shift_complete', jsonb_build_object(
  'id', '$SID2', 'expected_revision', 1, 'revenue', '1000', 'expected_revenue_revision', 1));
 SQL
-set +e
-wait
-set -e
+P2=$!
+R1=0; R2=0
+wait "$P1" || R1=$?
+wait "$P2" || R2=$?
 if grep -qi "deadlock" "$TMP/c3a.out" "$TMP/c3b.out"; then
   echo "FAIL C3: deadlock detected"; cat "$TMP"/c3*.out; exit 1
 fi
 # Both operations must have succeeded.
-grep -qi "ERROR" "$TMP/c3a.out" && { echo "FAIL C3: month_recalc failed"; cat "$TMP/c3a.out"; exit 1; }
-grep -qi "ERROR" "$TMP/c3b.out" && { echo "FAIL C3: shift_complete failed"; cat "$TMP/c3b.out"; exit 1; }
-# Consistency: a final recalculation converges; monthly amount equals the sum of shares.
-psql_run <<SQL >/dev/null
-SELECT set_config('request.jwt.claim.sub', '$U', false);
-SELECT public.shiftly_write(gen_random_uuid(), 'month_recalc',
- jsonb_build_object('workplace_id', '$W', 'month', '2026-05-01'));
-SQL
+[ "$R1" -eq 0 ] || { echo "FAIL C3: month_recalc failed"; cat "$TMP/c3a.out"; exit 1; }
+[ "$R2" -eq 0 ] || { echo "FAIL C3: shift_complete failed"; cat "$TMP/c3b.out"; exit 1; }
+# Assert immediately after concurrency, without a repairing recalculation.
 CONSISTENT="$(psql_run -c "
-SELECT CASE WHEN m.commission_amount IS NOT DISTINCT FROM s.total THEN 'yes' ELSE 'no' END
+SELECT CASE WHEN m.commission_amount = 100.00 AND s.total = 100.00 THEN 'yes' ELSE 'no' END
 FROM public.monthly_commission_results m
 JOIN (SELECT workplace_id, sum(commission_pay) total FROM public.shifts
       WHERE workplace_id = '$W' AND status = 'completed' AND deleted_at IS NULL
