@@ -2,7 +2,7 @@ import type { WorkplaceColor } from "@/lib/types";
 export { publishRatesPayload, type HourlyDraft } from "@/lib/account-rates";
 
 /** Only these approved shiftly_write operations are reachable from the personal space. */
-export const PROFILE_OPERATIONS = ["profile_edit", "workplace_edit", "workplace_archive", "publish_rates", "publish_commission", "shift_create", "shift_edit", "shift_complete", "shift_delete", "shift_start", "shift_cancel"] as const;
+export const PROFILE_OPERATIONS = ["profile_edit", "workplace_edit", "workplace_archive", "publish_rates", "publish_commission", "shift_create", "shift_create_completed", "shift_edit", "shift_complete", "shift_delete", "shift_start", "shift_cancel"] as const;
 export type ProfileOperation = (typeof PROFILE_OPERATIONS)[number];
 export const isProfileOperation = (v: unknown): v is ProfileOperation =>
   typeof v === "string" && (PROFILE_OPERATIONS as readonly string[]).includes(v);
