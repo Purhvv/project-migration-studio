@@ -80,13 +80,36 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
     const found = findAccountConflicts({ id: initial?.id ?? null, starts_at: time.starts_at, ends_at: time.ends_at }, shifts);
     if (found.length) { setConflicts(found); return; }
     setConflicts([]);
-    mutation.mutate(initial
-      ? { type: "shift_edit", payload: shiftEditPayload(initial, { workplace, date, start, end }, comment) }
-      : { type: "shift_create", payload: shiftCreatePayload({ workplace, date, start, end }, comment) });
+    if (initial) {
+      mutation.mutate({ type: "shift_edit", payload: shiftEditPayload(initial, { workplace, date, start, end }, comment) });
+      return;
+    }
+    if (timing === "past") {
+      try {
+        mutation.mutate({ type: "shift_create_completed", payload: shiftCreateCompletedPayload({ workplace, date, start, end }, { revenue, tips, adjustments: [...bonuses, ...penalties] }, comment) });
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Проверьте финансовые данные.");
+      }
+      return;
+    }
+    mutation.mutate({ type: "shift_create", payload: shiftCreatePayload({ workplace, date, start, end }, comment) });
   };
 
   const estimate = workplace && start && end && start !== end ? estimateAccountPay(workplace, date, start, end) : null;
   const showEstimate = !initial || initial.status === "planned" || initial.status === "in_progress" || initial.status === "pending";
+  // A brand-new shift whose end has already passed (workplace timezone) is saved as completed with finances at once.
+  let timing: "past" | "current" | "future" = "future";
+  if (!initial && workplace && start && end && start !== end) {
+    try {
+      const t = shiftTimeFields({ workplace, date, start, end });
+      timing = classifyShiftTiming(t.starts_at, t.ends_at);
+    } catch { timing = "future"; }
+  }
+  const asCompleted = !initial && timing === "past";
+  const money = (v: string) => (v.trim() ? Number(v.trim().replace(",", ".")) : 0);
+  const bonusSum = bonuses.reduce((s, b) => s + money(b.amount), 0);
+  const penaltySum = penalties.reduce((s, p) => s + money(p.amount), 0);
+  const knownTotal = estimate?.amount != null ? estimate.amount + money(tips) + bonusSum - penaltySum : null;
 
   return (
     <form onSubmit={submit} className="space-y-6 px-5 pt-4 pb-6">
