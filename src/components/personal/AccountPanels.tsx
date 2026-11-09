@@ -5,7 +5,7 @@ import { Briefcase, Check, Plus, Trash2, Archive } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { accountWrite } from "@/lib/account.functions";
-import { profileEditPayload, publishCommissionPayload, publishRatesPayload, validGoal, type AccountCommission, type AccountSettings, type AccountWorkplace, type GoalKey, type HourlyDraft, type ProfileOperation } from "@/lib/account-settings";
+import { profileEditPayload, publishCommissionPayload, publishRatesPayload, validGoal, workplaceEditPayload, type AccountCommission, type AccountSettings, type AccountWorkplace, type GoalKey, type HourlyDraft, type ProfileOperation } from "@/lib/account-settings";
 import { supabase } from "@/integrations/supabase/client";
 import { authError } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -110,19 +110,22 @@ export function WorkplacesPanel({ settings, userId }: Ctx) {
   return (
     <div className="space-y-3">
       {settings.workplaces.length ? (
-        <Panel className="divide-y">
+        <div className="space-y-2">
           {settings.workplaces.map((w) => (
-            <div key={w.id} className="flex items-center gap-2 px-4 py-3">
+            <Panel key={w.id} className="flex items-center gap-3 border-l-4 px-4 py-3" style={{ borderLeftColor: wpColor(w.color) }}>
               <WorkplaceDot color={w.color} className="size-3" />
-              <span className="min-w-0 flex-1 truncate text-sm">{w.name}</span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{w.name}</p>
+                <p className="text-xs text-muted-foreground">Цель по выручке: <Money value={w.revenue_goal} /></p>
+              </div>
               <Button size="sm" variant="ghost" onClick={() => setEditing(w)}>Изменить</Button>
               <Button size="icon" variant="ghost" className="size-8" aria-label={`Архивировать ${w.name}`} disabled={save.isPending}
                 onClick={() => { if (window.confirm(`Архивировать «${w.name}»? История смен сохранится.`)) save.mutate({ type: "workplace_archive", payload: { id: w.id, expected_revision: w.revision } }); }}>
                 <Archive className="size-4" />
               </Button>
-            </div>
+            </Panel>
           ))}
-        </Panel>
+        </div>
       ) : <EmptyState icon={Briefcase} title="Нет мест работы" text="Добавьте первое место работы" />}
       <Button variant="secondary" className="w-full" onClick={() => setEditing("new")}><Plus />Добавить место работы</Button>
       <Note>Места работы не удаляются, а архивируются, чтобы не потерять историю.</Note>
@@ -134,13 +137,15 @@ function WorkplaceEditor({ userId, initial, onDone }: { userId: string; initial:
   const save = useAccountWrite(userId);
   const [name, setName] = useState(initial?.name ?? "");
   const [color, setColor] = useState<WorkplaceColor>(initial?.color ?? "green");
+  const [goal, setGoal] = useState(toInput(initial?.revenue_goal ?? null));
+  const goalValue = parseNumberInput(goal);
+  const goalOk = goalValue === null || goalValue > 0;
   return (
     <form className="space-y-4" onSubmit={(e) => {
       e.preventDefault();
-      if (!name.trim()) return;
-      const payload = initial
-        ? { id: initial.id, expected_revision: initial.revision, name: name.trim(), color }
-        : { id: crypto.randomUUID(), name: name.trim(), color };
+      if (!name.trim() || !goalOk) return;
+      let payload: Record<string, unknown>;
+      try { payload = workplaceEditPayload(initial, name, color, goalValue); } catch (err) { toast.error((err as Error).message); return; }
       save.mutate({ type: "workplace_edit", payload }, { onSuccess: onDone });
     }}>
       <div className="space-y-1.5"><Label>Название</Label><Input autoFocus maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Бар «Хмель»" /></div>
@@ -155,7 +160,12 @@ function WorkplaceEditor({ userId, initial, onDone }: { userId: string; initial:
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3"><Button type="button" variant="secondary" onClick={onDone}>Отмена</Button><Button type="submit" disabled={save.isPending || !name.trim()}>Сохранить</Button></div>
+      <div className="space-y-1.5">
+        <Label>Цель по выручке за месяц</Label>
+        <NumberInput aria-label="Цель по выручке" placeholder="Не задана" value={goal} onValueChange={setGoal} />
+        {goalOk ? <Note>Только для этого места. Оставьте пустым, чтобы не задавать.</Note> : <p className="text-xs text-negative">Число больше 0</p>}
+      </div>
+      <div className="grid grid-cols-2 gap-3"><Button type="button" variant="secondary" onClick={onDone}>Отмена</Button><Button type="submit" disabled={save.isPending || !name.trim() || !goalOk}>Сохранить</Button></div>
     </form>
   );
 }
