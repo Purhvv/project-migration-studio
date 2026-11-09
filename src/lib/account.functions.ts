@@ -2,6 +2,7 @@ import { createServerFn, createMiddleware } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { selectRateVersions, validateRatePublication, workplaceToday } from "@/lib/account-rates";
 import { isProfileOperation, validateWorkplaceEdit, validateCommissionPublication, writeErrorMessage, type AccountSettings, type AccountWorkplace, type AccountInterval, type ProfileOperation } from "@/lib/account-settings";
+import { validateShiftWrite, SHIFT_OPERATIONS, type AccountShift, type ShiftOperation } from "@/lib/account-shifts";
 
 // The generated middleware checks claims. This additional boundary confirms the
 // account with Auth, including revocation/deletion, before private reads.
@@ -59,6 +60,20 @@ export const getAccountSettings = createServerFn({ method: "POST" })
     return { profile: profile.data, workplaces: list };
   });
 
+/** Owner-only shift list: active rows (trash excluded), identity from the verified session. */
+export const getAccountShifts = createServerFn({ method: "POST" })
+  .middleware([verifiedUser])
+  .handler(async ({ context }): Promise<AccountShift[]> => {
+    const { data, error } = await context.supabase.from("shifts")
+      .select("id, workplace_id, local_start_date, local_end_date, start_time, end_time, starts_at, ends_at, status, revenue, tips, base_pay, earnings, comment, revision, revenue_revision")
+      .eq("user_id", context.verifiedUserId)
+      .is("deleted_at", null)
+      .order("local_start_date")
+      .order("start_time");
+    if (error) throw new Error("SHIFTLY_SHIFTS_UNAVAILABLE");
+    return data.map((s) => ({ ...s, start_time: s.start_time.slice(0, 5), end_time: s.end_time.slice(0, 5) }));
+  });
+
 /** The only write path: approved shiftly_write RPC; the database derives the owner from auth.uid(). */
 export const accountWrite = createServerFn({ method: "POST" })
   .middleware([verifiedUser])
@@ -69,6 +84,7 @@ export const accountWrite = createServerFn({ method: "POST" })
     if (input.type === "publish_rates") validateRatePublication(input.payload);
     if (input.type === "workplace_edit") validateWorkplaceEdit(input.payload);
     if (input.type === "publish_commission") validateCommissionPublication(input.payload);
+    if ((SHIFT_OPERATIONS as readonly string[]).includes(input.type)) validateShiftWrite(input.type as ShiftOperation, input.payload);
     return input;
   })
   .handler(async ({ context, data }) => {
