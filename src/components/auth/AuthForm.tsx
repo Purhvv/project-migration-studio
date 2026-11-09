@@ -10,7 +10,7 @@ import { authError, useAuth } from "@/lib/auth";
 type Mode = "login" | "signup" | "forgot" | "reset";
 const titles = { login: "Вход", signup: "Регистрация", forgot: "Восстановление", reset: "Новый пароль" };
 
-export function AuthForm({ mode, reason }: { mode: Mode; reason?: string }) {
+export function AuthForm({ mode, reason }: { mode: Mode; reason?: string | undefined }) {
   const auth = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
