@@ -99,6 +99,49 @@ export function shiftCreatePayload(time: ShiftTimeInput, comment: string, newId:
   };
 }
 
+/** Canonical decimal string accepted by the RPC money contract; empty input means unknown → NULL. */
+export const MONEY_PATTERN = /^[0-9]+(\.[0-9]{1,2})?$/;
+const MONEY_MAX = 999999999999.99;
+
+/** Decimal-string money for the RPC: trims, rejects JSON numbers and out-of-range sums, keeps NULL for unknown. */
+export function cleanMoney(value: string): string | null {
+  const trimmed = value.trim().replace(",", ".");
+  if (!trimmed) return null;
+  if (!MONEY_PATTERN.test(trimmed) || Number(trimmed) > MONEY_MAX) throw new Error("Сумма: от 0 до 999 999 999 999,99 ₽, не более двух знаков после запятой.");
+  return trimmed;
+}
+
+export type AdjustmentDraft = { kind: "bonus" | "penalty"; label: string; amount: string };
+
+/** Timing of a new shift against the current moment, on real UTC instants (overnight already resolved). */
+export function classifyShiftTiming(starts_at: string, ends_at: string, now: number = Date.now()): "past" | "current" | "future" {
+  const start = Date.parse(starts_at);
+  const end = Date.parse(ends_at);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return "future";
+  if (end <= now) return "past";
+  if (start > now) return "future";
+  return "current";
+}
+
+/** shift_create_completed: an already-finished shift saved atomically as completed with its financial data. */
+export function shiftCreateCompletedPayload(time: ShiftTimeInput, fin: { revenue: string; tips: string; adjustments: AdjustmentDraft[] }, comment: string, newId: () => string = () => crypto.randomUUID()) {
+  const adjustments = fin.adjustments.map((a, index) => {
+    const label = a.label.trim();
+    if (!label) throw new Error("Укажите название премии или штрафа.");
+    return { kind: a.kind, label: label.slice(0, 200), amount: cleanMoney(a.amount), comment: null, sort_order: index };
+  });
+  return {
+    id: newId(),
+    ...shiftTimeFields(time),
+    revenue: cleanMoney(fin.revenue),
+    tips: cleanMoney(fin.tips),
+    comment: cleanComment(comment),
+    adjustments,
+    fixed_payments: [] as unknown[],
+    override_conflicts: false,
+  };
+}
+
 /** shift_edit: time set is always complete; revenue/tips are omitted so the RPC keeps stored values. */
 export function shiftEditPayload(shift: Pick<AccountShift, "id" | "revision">, time: ShiftTimeInput, comment: string) {
   return {
