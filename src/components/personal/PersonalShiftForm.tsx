@@ -196,7 +196,7 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
       )}
 
       <div className="space-y-3 rounded-2xl border bg-card p-4">
-        {showEstimate && estimate && (
+        {showEstimate && !asCompleted && estimate && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="min-w-0 text-muted-foreground">Предварительная оплата по ставке</span>
@@ -241,6 +241,30 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="min-w-0 space-y-1.5">
       <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
+    </div>
+  );
+}
+
+/** Editable list of bonuses or penalties: several named entries, amount may stay unknown. */
+function AdjustmentList({ title, items, onChange, kind }: { title: string; items: AdjustmentDraft[]; onChange: (items: AdjustmentDraft[]) => void; kind: AdjustmentDraft["kind"] }) {
+  const update = (index: number, patch: Partial<AdjustmentDraft>) => onChange(items.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-xs text-muted-foreground">{title}</Label>
+        <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => onChange([...items, { kind, label: "", amount: "" }])}>
+          <Plus className="size-3.5" />Добавить
+        </Button>
+      </div>
+      {items.map((item, index) => (
+        <div key={index} className="flex items-start gap-2">
+          <Input aria-label={`${title}: название ${index + 1}`} placeholder="Название" value={item.label} onChange={(e) => update(index, { label: e.target.value })} className="min-w-0 flex-1" />
+          <NumberInput aria-label={`${title}: сумма ${index + 1}`} placeholder="Сумма" value={item.amount} onValueChange={(v) => update(index, { amount: v })} className="w-28 shrink-0" />
+          <Button type="button" variant="ghost" size="icon" aria-label={`Удалить ${index + 1}`} onClick={() => onChange(items.filter((_, i) => i !== index))}>
+            <X className="size-4" />
+          </Button>
+        </div>
+      ))}
     </div>
   );
 }
