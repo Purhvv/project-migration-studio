@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState, Money, Panel, Section } from "@/components/shared/primitives";
 import { STATUS_META, StatusIcon, WorkplaceDot } from "@/components/shifts/shift-ui";
 import { accountWrite } from "@/lib/account.functions";
-import { estimateAccountPay, shiftActions, shiftCancelPayload, shiftCompletePayload, shiftDeletePayload, shiftStartPayload, type AccountShift } from "@/lib/account-shifts";
+import { estimateAccountPay, shiftActions, shiftCancelPayload, shiftCompletePayload, shiftDeletePayload, shiftStartPayload } from "@/lib/account-shifts";
 import { accountSettingsOptions, accountShiftsOptions } from "@/data/account-queries";
 import { formatHours, fmtDate, shiftMinutes } from "@/lib/format";
 import { cn } from "@/lib/utils";
