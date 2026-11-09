@@ -116,13 +116,13 @@ SELECT public.shiftly_write(gen_random_uuid(), 'publish_commission', jsonb_build
 SQL
 
 echo "== C1: parallel publications get distinct sequential revisions =="
-psql "$DSN" -q -v ON_ERROR_STOP=1 >"$TMP/c1a.out" 2>&1 <<SQL &
+psql "${BASE[@]}" -d "$DB" -q >"$TMP/c1a.out" 2>&1 <<SQL &
 SELECT set_config('request.jwt.claim.sub', '$U', false);
 SELECT public.shiftly_write(gen_random_uuid(), 'publish_rates', jsonb_build_object(
  'workplace_id', '$W', 'effective_from', '2026-07-01', 'intervals', jsonb_build_array(
   jsonb_build_object('kind','hourly','start_time','00:00','end_time','23:59','hourly','150','label','july'))));
 SQL
-psql "$DSN" -q -v ON_ERROR_STOP=1 >"$TMP/c1b.out" 2>&1 <<SQL &
+psql "${BASE[@]}" -d "$DB" -q >"$TMP/c1b.out" 2>&1 <<SQL &
 SELECT set_config('request.jwt.claim.sub', '$U', false);
 SELECT public.shiftly_write(gen_random_uuid(), 'publish_rates', jsonb_build_object(
  'workplace_id', '$W', 'effective_from', '2026-08-01', 'intervals', jsonb_build_array(
@@ -141,12 +141,12 @@ SELECT public.shiftly_write(gen_random_uuid(), 'shift_create', jsonb_build_objec
  'id', '$SID', 'workplace_id', '$W', 'local_start_date', '2026-05-10', 'local_end_date', '2026-05-10',
  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-05-10T07:00:00Z', 'ends_at', '2026-05-10T15:00:00Z'));
 SQL
-psql "$DSN" -q -v ON_ERROR_STOP=1 >"$TMP/c2a.out" 2>&1 <<SQL &
+psql "${BASE[@]}" -d "$DB" -q >"$TMP/c2a.out" 2>&1 <<SQL &
 SELECT set_config('request.jwt.claim.sub', '$U', false);
 SELECT public.shiftly_write(gen_random_uuid(), 'shift_edit',
  jsonb_build_object('id', '$SID', 'expected_revision', 1, 'tips', '10'));
 SQL
-psql "$DSN" -q -v ON_ERROR_STOP=1 >"$TMP/c2b.out" 2>&1 <<SQL &
+psql "${BASE[@]}" -d "$DB" -q >"$TMP/c2b.out" 2>&1 <<SQL &
 SELECT set_config('request.jwt.claim.sub', '$U', false);
 SELECT public.shiftly_write(gen_random_uuid(), 'shift_edit',
  jsonb_build_object('id', '$SID', 'expected_revision', 1, 'tips', '20'));
@@ -173,12 +173,12 @@ SELECT public.shiftly_write(gen_random_uuid(), 'shift_create', jsonb_build_objec
  'id', '$SID2', 'workplace_id', '$W', 'local_start_date', '2026-05-11', 'local_end_date', '2026-05-11',
  'start_time', '10:00', 'end_time', '18:00', 'starts_at', '2026-05-11T07:00:00Z', 'ends_at', '2026-05-11T15:00:00Z'));
 SQL
-psql "$DSN" -q -v ON_ERROR_STOP=1 >"$TMP/c3a.out" 2>&1 <<SQL &
+psql "${BASE[@]}" -d "$DB" -q >"$TMP/c3a.out" 2>&1 <<SQL &
 SELECT set_config('request.jwt.claim.sub', '$U', false);
 SELECT public.shiftly_write(gen_random_uuid(), 'month_recalc',
  jsonb_build_object('workplace_id', '$W', 'month', '2026-05-01'));
 SQL
-psql "$DSN" -q -v ON_ERROR_STOP=1 >"$TMP/c3b.out" 2>&1 <<SQL &
+psql "${BASE[@]}" -d "$DB" -q >"$TMP/c3b.out" 2>&1 <<SQL &
 SELECT set_config('request.jwt.claim.sub', '$U', false);
 SELECT public.shiftly_write(gen_random_uuid(), 'shift_complete', jsonb_build_object(
  'id', '$SID2', 'expected_revision', 1, 'revenue', '1000', 'expected_revenue_revision', 1));
