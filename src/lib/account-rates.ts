@@ -7,7 +7,7 @@ const minute = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
 /** Decimal validation only; monetary calculations remain in PostgreSQL NUMERIC. */
 export function validHourly(value: string): boolean {
   if (!/^\d+(\.\d{1,2})?$/.test(value)) return false;
-  const whole = value.split(".")[0].replace(/^0+/, "") || "0";
+  const whole = (value.split(".")[0] ?? "").replace(/^0+/, "") || "0";
   return whole.length <= 8 && /[1-9]/.test(value);
 }
 
@@ -46,19 +46,19 @@ export function publishRatesPayload(workplaceId: string, effectiveFrom: string, 
 
 /** Enforce the editor's no-overlap rule even for direct server-function calls. DB validates ownership and NUMERIC. */
 export function validateRatePublication(payload: Record<string, unknown>) {
-  if (payload.acknowledge_overlap !== false || !Array.isArray(payload.intervals)) throw new Error("Некорректные данные ставок");
+  if (payload["acknowledge_overlap"] !== false || !Array.isArray(payload["intervals"])) throw new Error("Некорректные данные ставок");
   const rows: HourlyDraft[] = [];
   let fixed = false;
-  for (const value of payload.intervals) {
+  for (const value of payload["intervals"]) {
     if (!value || typeof value !== "object") throw new Error("Некорректный интервал");
     const r = value as Record<string, unknown>;
-    if (r.kind === "fixed") { fixed = true; continue; }
-    if (r.kind !== "hourly" || typeof r.label !== "string" || typeof r.hourly !== "string" || typeof r.start_time !== "string" || typeof r.end_time !== "string" || !Array.isArray(r.weekdays) || r.weekdays.some((d) => typeof d !== "number")) throw new Error("Некорректный интервал");
-    rows.push({ label: r.label, hourly: r.hourly, start: r.start_time, end: r.end_time, weekdays: r.weekdays });
+    if (r["kind"] === "fixed") { fixed = true; continue; }
+    if (r["kind"] !== "hourly" || typeof r["label"] !== "string" || typeof r["hourly"] !== "string" || typeof r["start_time"] !== "string" || typeof r["end_time"] !== "string" || !Array.isArray(r["weekdays"]) || r["weekdays"].some((d) => typeof d !== "number")) throw new Error("Некорректный интервал");
+    rows.push({ label: r["label"], hourly: r["hourly"], start: r["start_time"], end: r["end_time"], weekdays: r["weekdays"] });
   }
   const error = rateDraftError(rows, fixed);
   if (error) throw new Error(error);
-  if (typeof payload.effective_from !== "string" || !validRateDate(payload.effective_from)) throw new Error("Укажите корректную дату начала действия");
+  if (typeof payload["effective_from"] !== "string" || !validRateDate(payload["effective_from"])) throw new Error("Укажите корректную дату начала действия");
 }
 
 export function selectRateVersions(versions: AccountRateVersion[], date: string) {

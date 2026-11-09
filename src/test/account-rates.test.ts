@@ -5,10 +5,10 @@ const rows = [
   { label: "Дневная", hourly: "250", start: "08:00", end: "17:00" },
   { label: "Вечерняя", hourly: "300", start: "17:00", end: "00:00" },
   { label: "Ночная", hourly: "350", start: "00:00", end: "08:00" },
-];
+] as const;
 describe("personal rate publication", () => {
   it("retains arbitrary names and example amounts as decimal strings", () => {
-    const payload = publishRatesPayload("w", "2026-11-10", rows, []);
+    const payload = publishRatesPayload("w", "2026-11-10", [...rows], []);
     expect(payload.intervals.map((r) => [r.label, r.hourly])).toEqual([["Дневная", "250"], ["Вечерняя", "300"], ["Ночная", "350"]]);
     expect(payload.acknowledge_overlap).toBe(false);
     expect(() => validateRatePublication(payload)).not.toThrow();
@@ -25,20 +25,20 @@ describe("personal rate publication", () => {
     expect(rateDraftError([rows[0], { ...rows[1], start: "16:00" }])).not.toBeNull();
     expect(rateDraftError([{ ...rows[0], start: "22:00", end: "02:00" }, { ...rows[1], start: "01:00", end: "08:00" }])).not.toBeNull();
   });
-  it("accepts touching intervals at midnight", () => { expect(rateDraftError(rows)).toBeNull(); });
+  it("accepts touching intervals at midnight", () => { expect(rateDraftError([...rows])).toBeNull(); });
   it("checks the weekly wrap and retains weekday restrictions", () => {
     const overnight = { ...rows[0], start: "23:00", end: "02:00", weekdays: [6] };
     expect(rateDraftError([overnight, { ...rows[1], start: "01:00", end: "03:00", weekdays: [0] }])).not.toBeNull();
     expect(rateDraftError([overnight, { ...rows[1], start: "01:00", end: "03:00", weekdays: [1] }])).toBeNull();
-    expect(publishRatesPayload("w", "2026-11-10", [overnight], []).intervals[0].weekdays).toEqual([6]);
+    expect(publishRatesPayload("w", "2026-11-10", [overnight], []).intervals[0]?.weekdays).toEqual([6]);
   });
   it("blocks overlap acknowledgment and JSON-number money at the server boundary", () => {
-    const p = publishRatesPayload("w", "2026-11-10", rows, []);
+    const p = publishRatesPayload("w", "2026-11-10", [...rows], []);
     expect(() => validateRatePublication({ ...p, acknowledge_overlap: true })).toThrow();
     expect(() => validateRatePublication({ ...p, intervals: [{ ...p.intervals[0], hourly: 250 }] })).toThrow();
   });
   it("requires a name, real date and at least one interval", () => {
-    expect(() => publishRatesPayload("w", "2026-02-30", rows, [])).toThrow();
+    expect(() => publishRatesPayload("w", "2026-02-30", [...rows], [])).toThrow();
     expect(() => publishRatesPayload("w", "2026-11-10", [], [])).toThrow();
     expect(() => publishRatesPayload("w", "2026-11-10", [{ ...rows[0], label: " " }], [])).toThrow();
   });
