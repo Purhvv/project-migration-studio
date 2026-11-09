@@ -19,8 +19,8 @@ describe("personal profile writes", () => {
     expect(validGoal("hours_goal", null)).toBe(true);
   });
   it("commission versions start on the first of the month and reject percent above 100", () => {
-    expect(publishCommissionPayload("w", "2026-12", "fixed", 5, []).effective_from).toBe("2026-12-01");
-    expect(() => publishCommissionPayload("w", "2026-12", "fixed", 120, [])).toThrow();
+    expect(publishCommissionPayload("w", "2026-12", "fixed", "5", []).effective_from).toBe("2026-12-01");
+    expect(() => publishCommissionPayload("w", "2026-12", "fixed", "120", [])).toThrow();
   });
   it("publishing rates carries fixed payments over unchanged", () => {
     const p = publishRatesPayload("w", "2026-11-09", [{ label: "Дневная", start: "10:00", end: "18:00", hourly: "300" }], [{ id: "f", kind: "fixed", start_time: null, end_time: null, hourly: null, fixed_amount: 500, label: "Выход", weekdays: [], sort_order: 0 }]);

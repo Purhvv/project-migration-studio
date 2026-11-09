@@ -1,7 +1,7 @@
 import { createServerFn, createMiddleware } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { selectRateVersions, validateRatePublication, workplaceToday } from "@/lib/account-rates";
-import { isProfileOperation, validateWorkplaceEdit, writeErrorMessage, type AccountSettings, type AccountWorkplace, type AccountInterval, type ProfileOperation } from "@/lib/account-settings";
+import { isProfileOperation, validateWorkplaceEdit, validateCommissionPublication, writeErrorMessage, type AccountSettings, type AccountWorkplace, type AccountInterval, type ProfileOperation } from "@/lib/account-settings";
 
 // The generated middleware checks claims. This additional boundary confirms the
 // account with Auth, including revocation/deletion, before private reads.
@@ -68,6 +68,7 @@ export const accountWrite = createServerFn({ method: "POST" })
     if (!input.payload || typeof input.payload !== "object" || Array.isArray(input.payload) || "user_id" in input.payload) throw new Error("Некорректные данные");
     if (input.type === "publish_rates") validateRatePublication(input.payload);
     if (input.type === "workplace_edit") validateWorkplaceEdit(input.payload);
+    if (input.type === "publish_commission") validateCommissionPublication(input.payload);
     return input;
   })
   .handler(async ({ context, data }) => {

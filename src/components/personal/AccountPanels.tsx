@@ -274,7 +274,7 @@ function CommissionEditor({ workplace: w, userId }: { workplace: AccountWorkplac
   const [month, setMonth] = useState(nextMonth());
   function publish() {
     try {
-      const payload = publishCommissionPayload(w.id, month, mode, parseNumberInput(fixed), rows.map((r) => ({ from_amount: parseNumberInput(r.from) ?? NaN, percent: parseNumberInput(r.percent) ?? NaN })));
+      const payload = publishCommissionPayload(w.id, month, mode, fixed === "" ? null : fixed, rows.map((r) => ({ from_amount: r.from, percent: r.percent })));
       save.mutate({ type: "publish_commission", payload });
     } catch (e) { toast.error(e instanceof Error ? e.message : "Проверьте значения"); }
   }

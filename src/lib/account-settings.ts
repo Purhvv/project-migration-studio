@@ -54,16 +54,56 @@ export function workplaceEditPayload(initial: Pick<AccountWorkplace, "id" | "rev
   return initial ? { id: initial.id, expected_revision: initial.revision, ...base } : { id: newId(), ...base };
 }
 
-/** Commission versions start on the first day of a month. */
-export function publishCommissionPayload(workplaceId: string, month: string, mode: AccountCommission["mode"], fixedPercent: number | null, thresholds: Array<{ from_amount: number; percent: number }>) {
-  const percentOk = (n: number | null) => n !== null && Number.isFinite(n) && n >= 0 && n <= 100;
-  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error("Укажите месяц начала действия");
-  if (mode === "fixed" && !percentOk(fixedPercent)) throw new Error("Процент должен быть от 0 до 100");
-  if (mode === "thresholds" && (thresholds.length === 0 || thresholds.some((t) => !percentOk(t.percent) || !(t.from_amount >= 0)))) throw new Error("Проверьте пороги: сумма ≥ 0, процент от 0 до 100");
-  return { workplace_id: workplaceId, effective_from: `${month}-01`, mode, fixed_percent: mode === "fixed" ? fixedPercent : null, thresholds: mode === "thresholds" ? thresholds : [] };
+/** Exact decimal comparison only; no float conversion or automatic coercion at the RPC boundary. */
+function decimalUnits(value: unknown, max: bigint, error: string): bigint {
+  if (typeof value !== "string" || !/^\d+(\.\d{1,2})?$/.test(value)) throw new Error(error);
+  const [whole = "0", fraction = ""] = value.split(".");
+  const significant = whole.replace(/^0+/, "") || "0";
+  if (significant.length > 12) throw new Error(error);
+  const units = BigInt(significant) * 100n + BigInt(fraction.padEnd(2, "0"));
+  if (units > max) throw new Error(error);
+  return units;
+}
+
+/** Shared form/server validation matches the existing NUMERIC helpers and seal trigger. */
+export function validateCommissionPublication(payload: Record<string, unknown>) {
+  if (typeof payload["effective_from"] !== "string" || !/^[1-9]\d{3}-(0[1-9]|1[0-2])-01$/.test(payload["effective_from"])) throw new Error("Укажите месяц начала действия");
+  const mode = payload["mode"];
+  if (!["none", "fixed", "thresholds"].includes(String(mode))) throw new Error("Выберите тип комиссии.");
+  const rows = payload["thresholds"];
+  if (!Array.isArray(rows)) throw new Error("Укажите пороги комиссии.");
+  if (mode === "fixed") decimalUnits(payload["fixed_percent"], 10000n, "Процент: от 0 до 100, не более двух знаков после запятой.");
+  else if (payload["fixed_percent"] !== null) throw new Error("Фиксированный процент допустим только для фиксированной комиссии.");
+  if (mode !== "thresholds") {
+    if (rows.length) throw new Error("Пороги допустимы только для пороговой комиссии.");
+    return;
+  }
+  if (!rows.length) throw new Error("Добавьте первый порог с выручкой от 0 ₽.");
+  let previous = -1n;
+  for (const [index, row] of rows.entries()) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) throw new Error("Проверьте пороги комиссии.");
+    const amount = decimalUnits(row.from_amount, 99999999999999n, "Выручка порога: от 0 до 999 999 999 999,99 ₽, не более двух знаков после запятой.");
+    decimalUnits(row.percent, 10000n, "Процент порога: от 0 до 100, не более двух знаков после запятой.");
+    if (index === 0 && amount !== 0n) throw new Error("Первый порог должен начинаться с выручки 0 ₽.");
+    if (amount <= previous) throw new Error("Суммы порогов должны строго возрастать без повторов.");
+    previous = amount;
+  }
+}
+
+/** Commission versions start on the first day of a month; preserve editor decimal strings. */
+export function publishCommissionPayload(workplaceId: string, month: string, mode: AccountCommission["mode"], fixedPercent: string | null, thresholds: Array<{ from_amount: string; percent: string }>) {
+  const payload = { workplace_id: workplaceId, effective_from: `${month}-01`, mode, fixed_percent: mode === "fixed" ? fixedPercent : null, thresholds: mode === "thresholds" ? thresholds : [] };
+  validateCommissionPublication(payload);
+  return payload;
 }
 
 export function writeErrorMessage(raw: string, operation?: ProfileOperation): string {
+  if (operation === "publish_commission") {
+    if (/Threshold rules must start at zero/i.test(raw)) return "Первый порог должен начинаться с выручки 0 ₽.";
+    if (/Money field from_amount/i.test(raw)) return "Выручка порога: укажите сумму от 0 до 999 999 999 999,99 ₽ с точностью до копеек.";
+    if (/Money field (fixed_percent|percent)/i.test(raw)) return "Процент: от 0 до 100, не более двух знаков после запятой.";
+    if (/commission_thresholds.*(unique|key)|duplicate key.*commission_thresholds/i.test(raw)) return "Суммы порогов должны строго возрастать без повторов.";
+  }
   if (operation === "workplace_edit") {
     if (/Money field revenue_goal/i.test(raw)) return "Цель по выручке: укажите сумму от 0,01 до 999 999 999 999,99 ₽ с точностью до копеек или оставьте поле пустым.";
     if (/workplaces_color_check/i.test(raw)) return "Выберите цвет рабочего места из палитры.";
