@@ -765,7 +765,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      shiftly_close_month: {
+        Args: {
+          p_key: string
+          p_month: string
+          p_user: string
+          p_workplace: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
