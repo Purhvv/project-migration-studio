@@ -31,7 +31,7 @@ export function AuthForm({ mode, reason }: { mode: Mode; reason?: string | undef
   }, [mode]);
   useEffect(() => {
     if ((mode === "login" || mode === "signup") && auth.user && !auth.loading && !auth.recovery) {
-      void navigate({ to: "/account", replace: true });
+      void navigate({ to: "/app", replace: true });
     }
   }, [auth.user, auth.loading, auth.recovery, mode, navigate]);
   const canReset = !!auth.user && (auth.recovery || recoveryLink);
@@ -57,13 +57,13 @@ export function AuthForm({ mode, reason }: { mode: Mode; reason?: string | undef
       if (mode === "login") {
         const { error: failure } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (failure) throw failure;
-        await navigate({ to: "/account", replace: true });
+        await navigate({ to: "/app", replace: true });
       } else if (mode === "signup") {
         const { data, error: failure } = await supabase.auth.signUp({ email: email.trim(), password,
           options: { data: { name: name.trim() }, emailRedirectTo: `${window.location.origin}/auth/callback` } });
         if (failure) throw failure;
         setPassword(""); setConfirmation("");
-        if (data.session) await navigate({ to: "/account", replace: true });
+        if (data.session) await navigate({ to: "/app", replace: true });
         else setSuccess("Проверьте почту: мы отправили ссылку для подтверждения email. После подтверждения вы сможете войти.");
       } else if (mode === "forgot") {
         const { error: failure } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/reset-password` });

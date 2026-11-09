@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { AuthContext, type AuthState } from "@/lib/auth";
+import { AuthContext, isPersonalPath, type AuthState } from "@/lib/auth";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -23,8 +23,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       identity = user?.id ?? null;
       setState((previous) => ({ ...previous, user, loading: false }));
-      if (!user && router.state.location.pathname === "/account") {
-        void router.navigate({ to: "/auth", search: { reason: "session" }, replace: true });
+      if (!user && isPersonalPath(router.state.location.pathname)) {
+        void router.navigate({ to: "/", replace: true });
       }
     };
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -41,8 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void router.invalidate();
         if (event !== "SIGNED_OUT") void queryClient.invalidateQueries({ queryKey: ["account"] });
       }
-      if (event === "SIGNED_OUT" && router.state.location.pathname === "/account") {
-        void router.navigate({ to: "/auth", search: { reason: "session" }, replace: true });
+      if (event === "SIGNED_OUT" && isPersonalPath(router.state.location.pathname)) {
+        void router.navigate({ to: "/", replace: true });
       }
     });
     void validate();

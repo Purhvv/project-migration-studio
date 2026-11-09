@@ -16,7 +16,7 @@ import { useProfile, useSaveWorkplace, useWorkplaces } from "@/data/queries";
 import type { RateInterval, Workplace, WorkplaceColor } from "@/lib/types";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/auth";
+import { setWantsDemo, useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
@@ -65,7 +65,7 @@ function ProfilePage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Профиль" />
-      <Section><Button asChild variant="secondary" className="w-full"><Link to={auth.user ? "/account" : "/auth"}>{auth.user ? "Личный аккаунт" : "Войти в Shiftly"}</Link></Button></Section>
+      <Section><Button asChild variant="secondary" className="w-full"><Link to={auth.user ? "/app" : "/auth"} onClick={() => setWantsDemo(false)}>{auth.user ? "Перейти в личное пространство" : "Войти в Shiftly"}</Link></Button></Section>
       <Section>
         <Link to="/profile/account" className="block active:opacity-80" aria-label="Аккаунт и настройки">
           <Panel className="flex items-center gap-4 p-4">
