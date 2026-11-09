@@ -5,7 +5,7 @@ import { Briefcase, Check, Plus, Trash2, Archive, ArrowLeft, LoaderCircle } from
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { accountWrite } from "@/lib/account.functions";
-import { profileEditPayload, publishCommissionPayload, publishRatesPayload, validGoal, workplaceEditPayload, type AccountCommission, type AccountSettings, type AccountWorkplace, type GoalKey, type ProfileOperation } from "@/lib/account-settings";
+import { profileEditPayload, publishCommissionPayload, publishRatesPayload, validGoal, workplaceEditPayload, workplaceGoalError, type AccountCommission, type AccountSettings, type AccountWorkplace, type GoalKey, type ProfileOperation } from "@/lib/account-settings";
 import { supabase } from "@/integrations/supabase/client";
 import { authError } from "@/lib/auth";
 import { rateDraftError, selectRateVersions, validRateDate, workplaceToday, type HourlyDraft } from "@/lib/account-rates";
@@ -142,8 +142,9 @@ function WorkplaceEditor({ userId, initial, onDone }: { userId: string; initial:
   const [name, setName] = useState(initial?.name ?? "");
   const [color, setColor] = useState<WorkplaceColor>(initial?.color ?? "green");
   const [goal, setGoal] = useState(toInput(initial?.revenue_goal ?? null));
-  const goalValue = parseNumberInput(goal);
-  const goalOk = goalValue === null || goalValue > 0;
+  const goalValue = goal === "" ? null : goal;
+  const goalError = workplaceGoalError(goalValue);
+  const goalOk = goalError === null;
   return (
     <form className="space-y-4" onSubmit={(e) => {
       e.preventDefault();
@@ -152,7 +153,7 @@ function WorkplaceEditor({ userId, initial, onDone }: { userId: string; initial:
       try { payload = workplaceEditPayload(initial, name, color, goalValue); } catch (err) { toast.error((err as Error).message); return; }
       save.mutate({ type: "workplace_edit", payload }, { onSuccess: onDone });
     }}>
-      <div className="space-y-1.5"><Label>Название</Label><Input autoFocus maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Бар «Хмель»" /></div>
+      <div className="space-y-1.5"><Label>Название</Label><Input aria-label="Название рабочего места" autoFocus maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Бар «Хмель»" /></div>
       <div className="space-y-2">
         <Label>Цвет в календаре</Label>
         <div className="flex flex-wrap gap-3">
@@ -167,7 +168,7 @@ function WorkplaceEditor({ userId, initial, onDone }: { userId: string; initial:
       <div className="space-y-1.5">
         <Label>Цель по выручке за месяц</Label>
         <NumberInput aria-label="Цель по выручке" placeholder="Не задана" value={goal} onValueChange={setGoal} />
-        {goalOk ? <Note>Только для этого места. Оставьте пустым, чтобы не задавать.</Note> : <p className="text-xs text-negative">Число больше 0</p>}
+        {goalOk ? <Note>Только для этого места. Оставьте пустым, чтобы не задавать.</Note> : <p className="text-xs text-negative">{goalError}</p>}
       </div>
       <div className="grid grid-cols-2 gap-3"><Button type="button" variant="secondary" onClick={onDone}>Отмена</Button><Button type="submit" disabled={save.isPending || !name.trim() || !goalOk}>Сохранить</Button></div>
     </form>
