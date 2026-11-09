@@ -41,6 +41,6 @@
 - [x] Порядок применения девяти миграций, изолированных проверок и риски интеграции; без подключения и выполнения SQL. Документ: supabase/STAGE3_1_INTEGRATION_PLAN.md.
 
 # Финальная защита локальных тестов
-- [ ] Усилить независимый preflight, неизменность Auth и cleanup concurrency harness.
-- [ ] Проверить отказы и C1–C3 на разрешённой одноразовой PostgreSQL 17.11, уничтожить её.
-- [ ] Зафиксировать NUMERIC(14,2) и UNIQUE источника выплаты в документации; подтвердить неизменность приложения и миграций.
+- [x] Усилить независимый preflight, неизменность Auth и cleanup concurrency harness; постоянные регрессии v3_1_harness_safety.py.
+- [x] Проверить 7 предварительных отказов, 3 раунда C1–C3 и cleanup при SQL error/TERM/INT на разрешённой одноразовой PostgreSQL 17.11; оба SQL-контракта прошли; весь кластер остановлен и удалён.
+- [x] Зафиксировать profiles.monthly_goal/workplaces.revenue_goal NUMERIC(14,2) и UNIQUE(shift_id, rate_interval_id): источник выплаты один раз на смену. STAGE2_REPORT, README и план 3.1 исправлены; SHA-256 приложения и девяти миграций/rollback совпали.

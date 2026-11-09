@@ -253,7 +253,7 @@ psql "$TEST_DB_DSN" -v ON_ERROR_STOP=1 -f supabase/tests/v3_contract.sql
 psql "$TEST_DB_DSN" -v ON_ERROR_STOP=1 -f supabase/tests/v3_1_contract.sql
 PGOPTIONS='-c app.shiftly_test_env=on' psql "$TEST_DB_DSN" -v ON_ERROR_STOP=1 -f supabase/tests/v3_1_scenarios.sql
 # Concurrency использует только отдельную marked clone-базу; она будет уничтожена.
-SHIFTLY_LOCAL_TEST_CONFIRM=DESTROY_DISPOSABLE_LOCAL_DATABASE PGOPTIONS='-c app.shiftly_test_env=on' TEST_CLUSTER_DIR=<local-cluster> TEST_DB_NAME=<disposable-clone> TEST_DB_PORT=54399 bash supabase/tests/v3_1_concurrency.sh
+SHIFTLY_LOCAL_TEST_CONFIRM=DESTROY_DISPOSABLE_LOCAL_DATABASE PGOPTIONS='-c app.shiftly_test_env=on' TEST_CLUSTER_DIR='/tmp/shiftly-disposable-REPLACE' TEST_DB_NAME='shiftly_disposable_replace' TEST_DB_PORT=54399 bash supabase/tests/v3_1_concurrency.sh
 ```
 
 Контрактные файлы проверяют каталог/валидаторы, scenario — 11 последовательных сценариев в транзакции с ROLLBACK, shell — 3 реальные конкурентные проверки. Все требуют отдельного безопасного назначения; scenario дополнительно проверяет GUC и пустые public-таблицы.
