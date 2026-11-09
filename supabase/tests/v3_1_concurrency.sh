@@ -4,11 +4,13 @@
 # SAFETY CONTRACT:
 #   * Run ONLY against a disposable, isolated test database with the 9 v3/v3.1
 #     migrations applied. NEVER against Supabase Cloud or a working database.
-#   * Requires TEST_DB_DSN (libpq connection string) pointing at that database.
-#   * The script opts in via app.shiftly_test_env=on and refuses to run if the
-#     target database is not empty of business rows before its own fixture.
-#   * The fixture user is deleted at the end (auth.users cascade); a trap
-#     guarantees cleanup even on failure.
+#   * Requires independent external confirmation and a pinned /tmp Unix socket.
+#   * Never accepts a DSN, TCP endpoint, or inherited libpq configuration.
+#   * Read-only preflight precedes ALL changes. Auth scaffold is never modified.
+#   * After successful preflight, the ENTIRE disposable database is dropped on
+#     success, failure, INT or TERM; cleanup failure is a nonzero exit.
+#   * SIGKILL/power loss cannot run traps: the external owner must also destroy
+#     the whole disposable cluster. GUC alone is never proof of safety.
 #
 # Covered concurrency scenarios (real parallelism via background psql):
 #   C1. Two parallel rate publications -> distinct sequential revisions.
@@ -17,40 +19,90 @@
 #       monthly row (commission_amount equals the sum of per-shift shares).
 set -euo pipefail
 
-DSN="${TEST_DB_DSN:?Set TEST_DB_DSN to a disposable test database with the v3/v3.1 migrations applied}"
-export PGOPTIONS="-c app.shiftly_test_env=on ${PGOPTIONS:-}"
+refuse() { echo "REFUSED: $*" >&2; exit 2; }
+[ "${SHIFTLY_LOCAL_TEST_CONFIRM:-}" = 'DESTROY_DISPOSABLE_LOCAL_DATABASE' ] || refuse 'external destructive-test confirmation required'
+[ -z "${TEST_DB_DSN:-}" ] || refuse 'DSN is forbidden; use pinned local parameters'
+ROOT="${TEST_CLUSTER_DIR:-}"
+DB="${TEST_DB_NAME:-}"
+PORT="${TEST_DB_PORT:-}"
+[[ "$ROOT" =~ ^/tmp/shiftly-disposable-[A-Za-z0-9]+$ ]] || refuse 'invalid disposable cluster path'
+[ -d "$ROOT" ] && [ ! -L "$ROOT" ] && [ "$(realpath "$ROOT")" = "$ROOT" ] || refuse 'cluster directory must be real and local'
+[[ "$DB" =~ ^shiftly_disposable_[a-z0-9_]+$ ]] || refuse 'database name must be explicitly disposable'
+[[ "$PORT" =~ ^[0-9]{4,5}$ ]] && [ "$PORT" -ge 1024 ] && [ "$PORT" -le 65535 ] || refuse 'invalid port'
+[ "${PGOPTIONS:-}" = '-c app.shiftly_test_env=on' ] || refuse 'external PGOPTIONS opt-in required'
+[ -S "$ROOT/.s.PGSQL.$PORT" ] || refuse 'local Unix socket missing'
+# Strip all inherited PG* settings, service files and startup files. Only the
+# single caller-supplied opt-in survives as an explicit psql option.
+for name in $(compgen -e); do [[ "$name" == PG* ]] && unset "$name"; done
+export PGOPTIONS='-c app.shiftly_test_env=on -c statement_timeout=30000 -c lock_timeout=15000'
+export PGSERVICEFILE=/dev/null PGPASSFILE=/dev/null PGCONNECT_TIMEOUT=5
+BASE=(-X -w -h "$ROOT" -p "$PORT" -U postgres -v ON_ERROR_STOP=1 -v VERBOSITY=verbose)
+psql_run() { psql "${BASE[@]}" -d "$DB" -q -t -A "$@"; }
+DSN="host=$ROOT port=$PORT user=postgres dbname=$DB"
+# Metadata is installed only by the independent owner of a fresh test cluster.
+# Read-only checks verify actual server address, database, physical directory,
+# version, roles, minimal Auth shape, hosted markers and all row counts.
+psql_run -v root="$ROOT" -v db="$DB" <<'SQL'
+BEGIN READ ONLY;
+SELECT set_config('shiftly.expected_root', :'root', true), set_config('shiftly.expected_db', :'db', true);
+DO $$
+DECLARE r record; n bigint;
+BEGIN
+ IF inet_server_addr() IS NOT NULL OR current_database() <> current_setting('shiftly.expected_db')
+    OR current_setting('data_directory') <> current_setting('shiftly.expected_root') || '/data'
+    OR current_setting('listen_addresses') <> '' OR current_setting('server_version') <> '17.11'
+    OR obj_description((SELECT oid FROM pg_database WHERE datname=current_database()), 'pg_database')
+       IS DISTINCT FROM 'shiftly-disposable-local-v1'
+    OR current_setting('app.shiftly_test_env', true) IS DISTINCT FROM 'on' THEN
+  RAISE EXCEPTION 'REFUSED: actual endpoint/version/disposable metadata mismatch';
+ END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper AND rolcreatedb)
+    OR (SELECT count(*) FROM pg_roles WHERE rolname IN ('anon','authenticated','service_role')) <> 3
+    OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname ~* 'supabase|production|^prod[_-]')
+    OR EXISTS (SELECT 1 FROM pg_namespace WHERE nspname ~* 'supabase|^storage$|^realtime$|^auth_admin$')
+    OR EXISTS (SELECT 1 FROM pg_database WHERE datname ~* 'supabase|production|^prod[_-]') THEN
+  RAISE EXCEPTION 'REFUSED: required test roles missing or hosted/production marker present';
+ END IF;
+ IF (SELECT count(*) FROM information_schema.columns WHERE table_schema='auth' AND table_name='users') <> 1
+    OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='auth' AND table_name='users' AND column_name='id' AND data_type='uuid')
+    OR (SELECT count(*) FROM pg_tables WHERE schemaname='auth') <> 1
+    OR to_regprocedure('auth.uid()') IS NULL
+    OR (SELECT count(*) FROM pg_tables WHERE schemaname='public') <> 12
+    OR to_regprocedure('public.shiftly_write(uuid,text,jsonb)') IS NULL THEN
+  RAISE EXCEPTION 'REFUSED: expected minimal local Auth and v3 schema missing';
+ END IF;
+ FOR r IN SELECT schemaname, tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') AND schemaname NOT LIKE 'pg_toast%' LOOP
+  EXECUTE format('SELECT count(*) FROM %I.%I', r.schemaname, r.tablename) INTO n;
+  IF n <> 0 THEN RAISE EXCEPTION 'REFUSED: user data exists in %.%', r.schemaname, r.tablename; END IF;
+ END LOOP;
+END $$;
+ROLLBACK;
+SQL
 TMP="$(mktemp -d)"
 U="eeeeeeee-0000-0000-0000-$(printf '%012d' $RANDOM)"
 W="ffffffff-0000-0000-0000-$(printf '%012d' $RANDOM)"
 
 cleanup() {
-  psql "$DSN" -q -v ON_ERROR_STOP=0 \
-    -c "DELETE FROM auth.users WHERE id = '$U';" >/dev/null 2>&1 || true
+  local status=$? failed=0 pid
+  trap - EXIT INT TERM
+  for pid in $(jobs -pr); do kill "$pid" 2>/dev/null || true; done
+  wait 2>/dev/null || true
+  if ! psql "${BASE[@]}" -d postgres -q -c "DROP DATABASE \"$DB\" WITH (FORCE);"; then
+    echo 'CLEANUP FAILED: external owner MUST destroy the entire local cluster' >&2
+    failed=1
+  else
+    echo "CLEANUP OK: disposable database destroyed"
+  fi
   rm -rf "$TMP"
+  [ "$failed" -eq 0 ] || status=1
+  exit "$status"
 }
 trap cleanup EXIT
-
-psql_run() { psql "$DSN" -q -v ON_ERROR_STOP=1 -t -A "$@"; }
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 echo "== fixture =="
 psql_run <<SQL
-CREATE SCHEMA IF NOT EXISTS auth;
-CREATE TABLE IF NOT EXISTS auth.users(id uuid PRIMARY KEY);
-CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
-LANGUAGE sql STABLE SET search_path = pg_catalog AS \$\$
- SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
-\$\$;
-DO \$\$
-DECLARE r record; n bigint;
-BEGIN
- IF current_setting('app.shiftly_test_env', true) IS DISTINCT FROM 'on' THEN
-  RAISE EXCEPTION 'REFUSED: app.shiftly_test_env=on required';
- END IF;
- FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public' LOOP
-  EXECUTE format('SELECT count(*) FROM public.%I', r.tablename) INTO n;
-  IF n <> 0 THEN RAISE EXCEPTION 'REFUSED: table % is not empty; use a fresh disposable database', r.tablename; END IF;
- END LOOP;
-END \$\$;
 INSERT INTO auth.users(id) VALUES ('$U');
 INSERT INTO public.profiles(id, name, timezone) VALUES ('$U', 'Concurrency Test', 'Europe/Moscow');
 SELECT set_config('request.jwt.claim.sub', '$U', false);
