@@ -179,8 +179,8 @@ export const shiftCancelPayload = (shift: Pick<AccountShift, "id" | "revision">,
 export const shiftDeletePayload = (shift: Pick<AccountShift, "id" | "revision">) =>
   ({ id: shift.id, expected_revision: shift.revision });
 
-export type ShiftOperation = "shift_create" | "shift_edit" | "shift_complete" | "shift_delete" | "shift_start" | "shift_cancel";
-export const SHIFT_OPERATIONS: readonly ShiftOperation[] = ["shift_create", "shift_edit", "shift_complete", "shift_delete", "shift_start", "shift_cancel"];
+export type ShiftOperation = "shift_create" | "shift_create_completed" | "shift_edit" | "shift_complete" | "shift_delete" | "shift_start" | "shift_cancel";
+export const SHIFT_OPERATIONS: readonly ShiftOperation[] = ["shift_create", "shift_create_completed", "shift_edit", "shift_complete", "shift_delete", "shift_start", "shift_cancel"];
 
 /** Server-boundary validation for shift payloads; the DB still enforces ownership, revisions and the status machine. */
 export function validateShiftWrite(type: ShiftOperation, payload: Record<string, unknown>) {
@@ -200,6 +200,22 @@ export function validateShiftWrite(type: ShiftOperation, payload: Record<string,
   if (!Number.isFinite(starts) || !Number.isFinite(ends) || ends <= starts) throw new Error("Проверьте дату и время смены.");
   if ("comment" in payload && payload["comment"] !== null && typeof payload["comment"] !== "string") throw new Error("Некорректный комментарий.");
   if (payload["override_conflicts"] !== false) throw new Error("Пересечения смен требуют явного подтверждения.");
+  if (type === "shift_create_completed") {
+    const validMoney = (v: unknown) => v === null || (typeof v === "string" && MONEY_PATTERN.test(v) && Number(v) <= 999999999999.99);
+    if ("revenue" in payload && !validMoney(payload["revenue"])) throw new Error("Выручка: сумма с точностью до копеек или пусто.");
+    if ("tips" in payload && !validMoney(payload["tips"])) throw new Error("Чаевые: сумма с точностью до копеек или пусто.");
+    if ("fixed_payments" in payload && (!Array.isArray(payload["fixed_payments"]) || payload["fixed_payments"].length > 0)) throw new Error("Фиксированные выплаты появятся на следующем этапе.");
+    if ("adjustments" in payload) {
+      if (!Array.isArray(payload["adjustments"])) throw new Error("Некорректные премии и штрафы.");
+      for (const item of payload["adjustments"] as unknown[]) {
+        const a = item as Record<string, unknown>;
+        if (!a || typeof a !== "object" || (a["kind"] !== "bonus" && a["kind"] !== "penalty")) throw new Error("Некорректные премии и штрафы.");
+        if (typeof a["label"] !== "string" || !a["label"].trim()) throw new Error("Укажите название премии или штрафа.");
+        if (!validMoney(a["amount"])) throw new Error("Сумма премии или штрафа: с точностью до копеек или пусто.");
+      }
+    }
+    return;
+  }
   for (const key of ["adjustments", "fixed_payments"] as const) {
     if (key in payload && (!Array.isArray(payload[key]) || payload[key].length > 0)) throw new Error("Премии, штрафы и фиксированные выплаты появятся на следующем этапе.");
   }
