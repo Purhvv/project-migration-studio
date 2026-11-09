@@ -118,6 +118,9 @@ export function writeErrorMessage(raw: string, operation?: ProfileOperation): st
     if (/Cannot assign new shifts to archived workplace/i.test(raw)) return "Рабочее место в архиве. Выберите другое место.";
     if (/Restore shift before editing/i.test(raw)) return "Смена в корзине. Сначала восстановите её.";
     if (/complete time set|one complete set/i.test(raw)) return "Проверьте дату и время смены.";
+    if (/Only a fully past shift/i.test(raw)) return "Завершённой можно сохранить только смену, которая уже полностью закончилась.";
+    if (/Money field (revenue|tips|amount)/i.test(raw)) return "Сумма: от 0 до 999 999 999 999,99 ₽ с точностью до копеек или оставьте поле пустым.";
+    if (/Adjustment kind and label/i.test(raw)) return "Укажите название премии или штрафа.";
     if (/Workplace move must explicitly replace fixed payments/i.test(raw)) return "Перенос смены с фиксированными выплатами пока недоступен.";
   }
   if (/revision conflict/i.test(raw)) return "Данные изменились на другом устройстве. Обновите и повторите.";
