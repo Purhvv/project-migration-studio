@@ -1,5 +1,6 @@
 import { createServerFn, createMiddleware } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { selectRateVersions, validateRatePublication, workplaceToday } from "@/lib/account-rates";
 import { isProfileOperation, writeErrorMessage, type AccountSettings, type AccountWorkplace, type AccountInterval, type ProfileOperation } from "@/lib/account-settings";
 
 // The generated middleware checks claims. This additional boundary confirms the
@@ -33,7 +34,7 @@ export const getAccountSettings = createServerFn({ method: "POST" })
     const [profile, workplaces, rateVersions, intervals, commissions, thresholds] = await Promise.all([
       db.from("profiles").select("id, name, currency, timezone, monthly_goal, hours_goal, shifts_goal, revision").eq("id", uid).single(),
       db.from("workplaces").select("id, name, color, timezone, revenue_goal, revision").eq("user_id", uid).is("archived_at", null).order("created_at"),
-      db.from("rate_versions").select("id, workplace_id, effective_from, revision").eq("user_id", uid).order("effective_from", { ascending: false }),
+      db.from("rate_versions").select("id, workplace_id, effective_from, revision").eq("user_id", uid).eq("sealed", true).order("effective_from", { ascending: false }),
       db.from("rate_intervals").select("id, rate_version_id, kind, start_time, end_time, hourly, fixed_amount, label, weekdays, sort_order").eq("user_id", uid).order("sort_order"),
       db.from("commission_rule_versions").select("id, workplace_id, effective_from, revision, mode, fixed_percent").eq("user_id", uid).order("effective_from", { ascending: false }),
       db.from("commission_thresholds").select("rule_version_id, from_amount, percent").eq("user_id", uid).order("from_amount"),
@@ -46,11 +47,12 @@ export const getAccountSettings = createServerFn({ method: "POST" })
       return own.find((r) => r.effective_from <= today) ?? own[own.length - 1] ?? null;
     };
     const list: AccountWorkplace[] = workplaces.data.map((w) => {
-      const rv = pick(rateVersions.data, w.id);
+      const versions = rateVersions.data.filter((v) => v.workplace_id === w.id).map((v) => ({ id: v.id, effective_from: v.effective_from, revision: v.revision, intervals: intervals.data.filter((i) => i.rate_version_id === v.id).map(({ rate_version_id: _, ...i }) => ({ ...i, start_time: i.start_time?.slice(0, 5) ?? null, end_time: i.end_time?.slice(0, 5) ?? null }) as AccountInterval) }));
+      const rv = selectRateVersions(versions, workplaceToday(w.timezone)).current;
       const cv = pick(commissions.data, w.id);
       return {
         ...w, color: w.color as AccountWorkplace["color"],
-        rates: rv ? { id: rv.id, effective_from: rv.effective_from, revision: rv.revision, intervals: intervals.data.filter((i) => i.rate_version_id === rv.id).map(({ rate_version_id: _, ...i }) => ({ ...i, start_time: i.start_time?.slice(0, 5) ?? null, end_time: i.end_time?.slice(0, 5) ?? null }) as AccountInterval) } : null,
+        rates: rv, rateVersions: versions,
         commission: cv ? { id: cv.id, effective_from: cv.effective_from, revision: cv.revision, mode: cv.mode as "none" | "fixed" | "thresholds", fixed_percent: cv.fixed_percent, thresholds: thresholds.data.filter((t) => t.rule_version_id === cv.id).map(({ from_amount, percent }) => ({ from_amount, percent })) } : null,
       };
     });
@@ -64,6 +66,7 @@ export const accountWrite = createServerFn({ method: "POST" })
     if (!input || !isProfileOperation(input.type)) throw new Error("Операция недоступна");
     if (typeof input.key !== "string" || !/^[0-9a-f-]{36}$/i.test(input.key)) throw new Error("Некорректный ключ операции");
     if (!input.payload || typeof input.payload !== "object" || Array.isArray(input.payload) || "user_id" in input.payload) throw new Error("Некорректные данные");
+    if (input.type === "publish_rates") validateRatePublication(input.payload);
     return input;
   })
   .handler(async ({ context, data }) => {
