@@ -112,7 +112,7 @@ export function WorkplacesPanel({ settings, userId }: Ctx) {
       {settings.workplaces.length ? (
         <div className="space-y-2">
           {settings.workplaces.map((w) => (
-            <Panel key={w.id} className="flex items-center gap-3 border-l-4 px-4 py-3" style={{ borderLeftColor: wpColor(w.color) }}>
+            <div key={w.id} className="flex items-center gap-3 rounded-2xl border border-l-4 bg-card px-4 py-3 shadow-card" style={{ borderLeftColor: wpColor(w.color) }}>
               <WorkplaceDot color={w.color} className="size-3" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{w.name}</p>
@@ -123,7 +123,7 @@ export function WorkplacesPanel({ settings, userId }: Ctx) {
                 onClick={() => { if (window.confirm(`Архивировать «${w.name}»? История смен сохранится.`)) save.mutate({ type: "workplace_archive", payload: { id: w.id, expected_revision: w.revision } }); }}>
                 <Archive className="size-4" />
               </Button>
-            </Panel>
+            </div>
           ))}
         </div>
       ) : <EmptyState icon={Briefcase} title="Нет мест работы" text="Добавьте первое место работы" />}

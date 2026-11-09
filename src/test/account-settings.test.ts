@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isProfileOperation, profileEditPayload, publishCommissionPayload, publishRatesPayload, validGoal } from "@/lib/account-settings";
+import { isProfileOperation, profileEditPayload, publishCommissionPayload, publishRatesPayload, validGoal, workplaceEditPayload } from "@/lib/account-settings";
 
 const profile = { id: "u", name: "Анна", currency: "RUB", timezone: "Europe/Moscow", monthly_goal: 100000, hours_goal: null, shifts_goal: 12, revision: 3 };
 
@@ -26,5 +26,18 @@ describe("personal profile writes", () => {
     const p = publishRatesPayload("w", "2026-11-09", [{ start: "10:00", end: "18:00", hourly: 300 }], [{ id: "f", kind: "fixed", start_time: null, end_time: null, hourly: null, fixed_amount: 500, label: "Выход", weekdays: [], sort_order: 0 }]);
     expect(p.intervals).toHaveLength(2);
     expect(p.intervals[1]).toMatchObject({ kind: "fixed", fixed_amount: 500, hourly: null });
+  });
+});
+
+describe("workplaceEditPayload", () => {
+  it("creates without revision and keeps its own revenue goal", () => {
+    expect(workplaceEditPayload(null, " Бар ", "green", 50000, () => "id1")).toEqual({ id: "id1", name: "Бар", color: "green", revenue_goal: 50000 });
+  });
+  it("edits with expected revision; empty goal stays unset", () => {
+    expect(workplaceEditPayload({ id: "w", revision: 4 }, "Кафе", "blue", null)).toEqual({ id: "w", expected_revision: 4, name: "Кафе", color: "blue", revenue_goal: null });
+  });
+  it("rejects empty name and non-positive goal", () => {
+    expect(() => workplaceEditPayload(null, "  ", "green", null)).toThrow();
+    expect(() => workplaceEditPayload(null, "Бар", "green", 0)).toThrow();
   });
 });
