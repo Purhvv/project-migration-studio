@@ -774,6 +774,7 @@ export type Database = {
         }
         Returns: Json
       }
+      shiftly_delete_account: { Args: { p_user: string }; Returns: Json }
       shiftly_write: {
         Args: { p_key: string; p_payload: Json; p_type: string }
         Returns: Json
