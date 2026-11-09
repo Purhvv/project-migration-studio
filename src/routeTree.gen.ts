@@ -28,6 +28,9 @@ import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppCalendarRouteImport } from './routes/_authenticated/app/calendar'
 import { Route as AuthenticatedAppStatsRouteImport } from './routes/_authenticated/app/stats'
 import { Route as ShiftsIdEditRouteImport } from './routes/shifts.$id.edit'
+import { Route as AuthenticatedAppShiftsIdRouteImport } from './routes/_authenticated/app/shifts.$id'
+import { Route as AuthenticatedAppShiftsNewRouteImport } from './routes/_authenticated/app/shifts.new'
+import { Route as AuthenticatedAppShiftsIdEditRouteImport } from './routes/_authenticated/app/shifts.$id.edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -124,6 +127,24 @@ const ShiftsIdEditRoute = ShiftsIdEditRouteImport.update({
   path: '/edit',
   getParentRoute: () => ShiftsIdRoute,
 } as any)
+const AuthenticatedAppShiftsIdRoute =
+  AuthenticatedAppShiftsIdRouteImport.update({
+    id: '/app/shifts/$id',
+    path: '/app/shifts/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAppShiftsNewRoute =
+  AuthenticatedAppShiftsNewRouteImport.update({
+    id: '/app/shifts/new',
+    path: '/app/shifts/new',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAppShiftsIdEditRoute =
+  AuthenticatedAppShiftsIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => AuthenticatedAppShiftsIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -144,6 +165,9 @@ export interface FileRoutesByFullPath {
   '/app/stats': typeof AuthenticatedAppStatsRoute
   '/shifts/$id/edit': typeof ShiftsIdEditRoute
   '/app/': typeof AuthenticatedAppIndexRoute
+  '/app/shifts/$id': typeof AuthenticatedAppShiftsIdRouteWithChildren
+  '/app/shifts/new': typeof AuthenticatedAppShiftsNewRoute
+  '/app/shifts/$id/edit': typeof AuthenticatedAppShiftsIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -164,6 +188,9 @@ export interface FileRoutesByTo {
   '/app/stats': typeof AuthenticatedAppStatsRoute
   '/shifts/$id/edit': typeof ShiftsIdEditRoute
   '/app': typeof AuthenticatedAppIndexRoute
+  '/app/shifts/$id': typeof AuthenticatedAppShiftsIdRouteWithChildren
+  '/app/shifts/new': typeof AuthenticatedAppShiftsNewRoute
+  '/app/shifts/$id/edit': typeof AuthenticatedAppShiftsIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -186,6 +213,9 @@ export interface FileRoutesById {
   '/_authenticated/app/stats': typeof AuthenticatedAppStatsRoute
   '/shifts/$id/edit': typeof ShiftsIdEditRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
+  '/_authenticated/app/shifts/$id': typeof AuthenticatedAppShiftsIdRouteWithChildren
+  '/_authenticated/app/shifts/new': typeof AuthenticatedAppShiftsNewRoute
+  '/_authenticated/app/shifts/$id/edit': typeof AuthenticatedAppShiftsIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -208,6 +238,9 @@ export interface FileRouteTypes {
     | '/app/stats'
     | '/shifts/$id/edit'
     | '/app/'
+    | '/app/shifts/$id'
+    | '/app/shifts/new'
+    | '/app/shifts/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -228,6 +261,9 @@ export interface FileRouteTypes {
     | '/app/stats'
     | '/shifts/$id/edit'
     | '/app'
+    | '/app/shifts/$id'
+    | '/app/shifts/new'
+    | '/app/shifts/$id/edit'
   id:
     | '__root__'
     | '/'
@@ -249,6 +285,9 @@ export interface FileRouteTypes {
     | '/_authenticated/app/stats'
     | '/shifts/$id/edit'
     | '/_authenticated/app/'
+    | '/_authenticated/app/shifts/$id'
+    | '/_authenticated/app/shifts/new'
+    | '/_authenticated/app/shifts/$id/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -403,14 +442,51 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShiftsIdEditRouteImport
       parentRoute: typeof ShiftsIdRoute
     }
+    '/_authenticated/app/shifts/$id': {
+      id: '/_authenticated/app/shifts/$id'
+      path: '/app/shifts/$id'
+      fullPath: '/app/shifts/$id'
+      preLoaderRoute: typeof AuthenticatedAppShiftsIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/shifts/new': {
+      id: '/_authenticated/app/shifts/new'
+      path: '/app/shifts/new'
+      fullPath: '/app/shifts/new'
+      preLoaderRoute: typeof AuthenticatedAppShiftsNewRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/shifts/$id/edit': {
+      id: '/_authenticated/app/shifts/$id/edit'
+      path: '/edit'
+      fullPath: '/app/shifts/$id/edit'
+      preLoaderRoute: typeof AuthenticatedAppShiftsIdEditRouteImport
+      parentRoute: typeof AuthenticatedAppShiftsIdRoute
+    }
   }
 }
+
+interface AuthenticatedAppShiftsIdRouteChildren {
+  AuthenticatedAppShiftsIdEditRoute: typeof AuthenticatedAppShiftsIdEditRoute
+}
+
+const AuthenticatedAppShiftsIdRouteChildren: AuthenticatedAppShiftsIdRouteChildren =
+  {
+    AuthenticatedAppShiftsIdEditRoute: AuthenticatedAppShiftsIdEditRoute,
+  }
+
+const AuthenticatedAppShiftsIdRouteWithChildren =
+  AuthenticatedAppShiftsIdRoute._addFileChildren(
+    AuthenticatedAppShiftsIdRouteChildren,
+  )
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
   AuthenticatedAppCalendarRoute: typeof AuthenticatedAppCalendarRoute
   AuthenticatedAppStatsRoute: typeof AuthenticatedAppStatsRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
+  AuthenticatedAppShiftsIdRoute: typeof AuthenticatedAppShiftsIdRouteWithChildren
+  AuthenticatedAppShiftsNewRoute: typeof AuthenticatedAppShiftsNewRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -418,6 +494,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppCalendarRoute: AuthenticatedAppCalendarRoute,
   AuthenticatedAppStatsRoute: AuthenticatedAppStatsRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
+  AuthenticatedAppShiftsIdRoute: AuthenticatedAppShiftsIdRouteWithChildren,
+  AuthenticatedAppShiftsNewRoute: AuthenticatedAppShiftsNewRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

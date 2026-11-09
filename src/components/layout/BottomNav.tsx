@@ -23,6 +23,7 @@ const personalItems = [
 
 export function BottomNav() {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const personal = isPersonalPath(pathname);
   const list = personal ? personalItems : items;
@@ -34,7 +35,7 @@ export function BottomNav() {
             it === null ? (
               <li key="add" className="flex justify-center">
                 <button
-                  onClick={() => (personal ? toast("Добавление смен в личном пространстве появится на следующем этапе") : setOpen(true))}
+                  onClick={() => (personal ? navigate({ to: "/app/shifts/new" }) : setOpen(true))}
                   aria-label="Добавить"
                   className="-mt-6 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-fab transition-transform active:scale-95"
                 >

@@ -1,11 +1,8 @@
+import { Link } from "@tanstack/react-router";
 import { Briefcase, CalendarPlus } from "lucide-react";
-import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Money, Panel, Section } from "@/components/shared/primitives";
-
-/** Personal space has no financial tables connected yet: never show demo rows here. */
-const soon = () => toast("Сохранение в личном пространстве появится на следующем этапе");
 
 export function sessionName(user: User): string {
   const meta = user.user_metadata ?? {};
@@ -14,11 +11,11 @@ export function sessionName(user: User): string {
 }
 
 export function NoWorkplaces() {
-  return <EmptyState icon={Briefcase} title="Нет рабочих мест" text="Добавьте первое место работы, чтобы планировать смены." action={<Button onClick={soon}>Добавить место работы</Button>} />;
+  return <EmptyState icon={Briefcase} title="Нет рабочих мест" text="Добавьте первое место работы, чтобы планировать смены." action={<Button asChild><Link to="/account">Добавить место работы</Link></Button>} />;
 }
 
 export function NoShifts() {
-  return <EmptyState icon={CalendarPlus} title="Нет смен" text="Добавьте первую смену, чтобы видеть заработок." action={<Button variant="secondary" onClick={soon}>Добавить первую смену</Button>} />;
+  return <EmptyState icon={CalendarPlus} title="Нет смен" text="Добавьте первую смену, чтобы видеть заработок." action={<Button asChild variant="secondary"><Link to="/app/shifts/new">Добавить первую смену</Link></Button>} />;
 }
 
 export function EmptyEarnings({ title = "Заработок за месяц" }: { title?: string }) {

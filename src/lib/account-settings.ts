@@ -1,8 +1,8 @@
 import type { WorkplaceColor } from "@/lib/types";
 export { publishRatesPayload, type HourlyDraft } from "@/lib/account-rates";
 
-/** Only these approved shiftly_write operations are reachable from the personal profile. */
-export const PROFILE_OPERATIONS = ["profile_edit", "workplace_edit", "workplace_archive", "publish_rates", "publish_commission"] as const;
+/** Only these approved shiftly_write operations are reachable from the personal space. */
+export const PROFILE_OPERATIONS = ["profile_edit", "workplace_edit", "workplace_archive", "publish_rates", "publish_commission", "shift_create", "shift_edit", "shift_complete", "shift_delete", "shift_start", "shift_cancel"] as const;
 export type ProfileOperation = (typeof PROFILE_OPERATIONS)[number];
 export const isProfileOperation = (v: unknown): v is ProfileOperation =>
   typeof v === "string" && (PROFILE_OPERATIONS as readonly string[]).includes(v);
@@ -109,6 +109,16 @@ export function writeErrorMessage(raw: string, operation?: ProfileOperation): st
     if (/workplaces_color_check/i.test(raw)) return "Выберите цвет рабочего места из палитры.";
     if (/workplaces_name_check|not-null constraint.*name/i.test(raw)) return "Укажите название рабочего места.";
     if (/workplaces_revenue_goal/i.test(raw)) return "Цель по выручке должна быть больше нуля или не задана.";
+  }
+  if (operation?.startsWith("shift_")) {
+    if (/Shift conflicts require explicit override/i.test(raw)) return "Смена пересекается по времени с другой сменой. Измените время.";
+    if (/Only a planned shift can be started/i.test(raw)) return "Начать можно только запланированную смену.";
+    if (/Only an active shift can be completed/i.test(raw)) return "Завершить можно только активную смену.";
+    if (/Only an active shift can be cancelled/i.test(raw)) return "Отменить можно только активную смену.";
+    if (/Cannot assign new shifts to archived workplace/i.test(raw)) return "Рабочее место в архиве. Выберите другое место.";
+    if (/Restore shift before editing/i.test(raw)) return "Смена в корзине. Сначала восстановите её.";
+    if (/complete time set|one complete set/i.test(raw)) return "Проверьте дату и время смены.";
+    if (/Workplace move must explicitly replace fixed payments/i.test(raw)) return "Перенос смены с фиксированными выплатами пока недоступен.";
   }
   if (/revision conflict/i.test(raw)) return "Данные изменились на другом устройстве. Обновите и повторите.";
   if (/Historical publication/i.test(raw)) return "Нельзя менять правила задним числом: в этом периоде уже есть завершённые смены.";
