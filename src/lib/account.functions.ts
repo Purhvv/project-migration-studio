@@ -71,7 +71,7 @@ export const getAccountShifts = createServerFn({ method: "POST" })
       .order("local_start_date")
       .order("start_time");
     if (error) throw new Error("SHIFTLY_SHIFTS_UNAVAILABLE");
-    return data.map((s) => ({ ...s, start_time: s.start_time.slice(0, 5), end_time: s.end_time.slice(0, 5) }));
+    return data.map((s) => ({ ...s, status: s.status as AccountShift["status"], start_time: s.start_time.slice(0, 5), end_time: s.end_time.slice(0, 5) }));
   });
 
 /** The only write path: approved shiftly_write RPC; the database derives the owner from auth.uid(). */
