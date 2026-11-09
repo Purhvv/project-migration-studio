@@ -5,11 +5,6 @@ export type AuthState = { user: User | null; loading: boolean; recovery: boolean
 export const AuthContext = createContext<AuthState>({ user: null, loading: true, recovery: false });
 export const useAuth = () => useContext(AuthContext);
 
-// Only this isolated account surface is a valid post-auth destination.
-export function authDestination(value: unknown): "/account" {
-  return value === "/account" ? value : "/account";
-}
-
 export function authError(error: unknown): string {
   const code = error && typeof error === "object" && "code" in error ? error.code : null;
   switch (code) {

@@ -35,6 +35,16 @@ export function AuthForm({ mode, reason }: { mode: Mode; reason?: string | undef
     }
   }, [auth.user, auth.loading, auth.recovery, mode, navigate]);
   const canReset = !!auth.user && (auth.recovery || recoveryLink);
+  async function resendConfirmation() {
+    if (!email.trim()) { setError("Введите email, чтобы запросить письмо подтверждения."); return; }
+    setBusy(true); setError("");
+    try {
+      const { error: failure } = await supabase.auth.resend({ type: "signup", email: email.trim(), options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
+      if (failure) throw failure;
+      setSuccess("Если email ожидает подтверждения, на него придёт новая ссылка. Проверьте почту.");
+    } catch (failure) { setError(authError(failure)); }
+    finally { setBusy(false); }
+  }
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(""); setSuccess("");
@@ -84,6 +94,7 @@ export function AuthForm({ mode, reason }: { mode: Mode; reason?: string | undef
         {(mode === "signup" || mode === "reset") && <label className="block space-y-2 text-sm"><span>Повторите пароль</span><Input required type={show ? "text" : "password"} autoComplete="new-password" minLength={8} value={confirmation} onChange={(e) => setConfirmation(e.target.value)} /></label>}
         {mode === "reset" && !auth.loading && !canReset && <p className="text-sm text-muted-foreground">Откройте ссылку из письма. Если она истекла, запросите новую.</p>}
         {error && <p role="alert" className="text-sm text-negative">{error}</p>}
+        {mode === "login" && error && <Button type="button" disabled={busy} variant="ghost" className="w-full whitespace-normal" onClick={() => void resendConfirmation()}>Отправить подтверждение email повторно</Button>}
         <Button type="submit" className="w-full" disabled={busy || (mode === "reset" && !canReset)}>{busy && <LoaderCircle className="animate-spin motion-reduce:animate-none" />}{mode === "login" ? "Войти" : mode === "signup" ? "Создать аккаунт" : mode === "forgot" ? "Отправить письмо" : "Сохранить пароль"}</Button>
       </form>}
       <div className="mt-5 flex flex-col gap-2">
