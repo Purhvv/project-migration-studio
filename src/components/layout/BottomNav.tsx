@@ -23,6 +23,7 @@ const personalItems = [
 
 export function BottomNav() {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const personal = isPersonalPath(pathname);
   const list = personal ? personalItems : items;
