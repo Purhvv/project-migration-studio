@@ -151,5 +151,3 @@ function PersonalShiftDetails() {
     </div>
   );
 }
-
-export type { AccountShift };
