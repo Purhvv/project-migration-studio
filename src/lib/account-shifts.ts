@@ -185,7 +185,7 @@ export const SHIFT_OPERATIONS: readonly ShiftOperation[] = ["shift_create", "shi
 /** Server-boundary validation for shift payloads; the DB still enforces ownership, revisions and the status machine. */
 export function validateShiftWrite(type: ShiftOperation, payload: Record<string, unknown>) {
   if (typeof payload["id"] !== "string" || !uuidPattern.test(payload["id"])) throw new Error("Некорректные данные смены.");
-  if (type !== "shift_create") {
+  if (type !== "shift_create" && type !== "shift_create_completed") {
     const revision = payload["expected_revision"];
     if (typeof revision !== "number" || !Number.isInteger(revision) || revision < 1) throw new Error("Некорректная версия смены.");
   }
