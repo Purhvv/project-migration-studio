@@ -9,7 +9,7 @@ const soon = () => toast("Сохранение в личном простран�
 
 export function sessionName(user: User): string {
   const meta = user.user_metadata ?? {};
-  const raw = typeof meta.name === "string" ? meta.name : typeof meta.full_name === "string" ? meta.full_name : "";
+  const raw = typeof meta["name"] === "string" ? meta["name"] : typeof meta["full_name"] === "string" ? meta["full_name"] : "";
   return raw.trim() || user.email || "—";
 }
 
