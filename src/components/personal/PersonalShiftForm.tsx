@@ -2,7 +2,7 @@ import { useRouter } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { format } from "date-fns";
-import { AlertTriangle, ChevronLeft, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronLeft, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { NumberInput } from "@/components/shared/NumberInput";
 import { Money, Panel } from "@/components/shared/primitives";
 import { STATUS_META, StatusIcon, WorkplaceDot } from "@/components/shifts/shift-ui";
 import { accountWrite } from "@/lib/account.functions";
-import { estimateAccountPay, findAccountConflicts, shiftCreatePayload, shiftDeletePayload, shiftEditPayload, shiftTimeFields, type AccountConflict, type AccountShift } from "@/lib/account-shifts";
+import { classifyShiftTiming, estimateAccountPay, findAccountConflicts, shiftCreateCompletedPayload, shiftCreatePayload, shiftDeletePayload, shiftEditPayload, shiftTimeFields, type AccountConflict, type AccountShift, type AdjustmentDraft } from "@/lib/account-shifts";
 import type { AccountWorkplace } from "@/lib/account-settings";
 import { formatHours, fmtDate, shiftMinutes } from "@/lib/format";
 
@@ -37,12 +38,16 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
   const [start, setStart] = useState(initial?.start_time ?? "12:00");
   const [end, setEnd] = useState(initial?.end_time ?? "22:00");
   const [comment, setComment] = useState(initial?.comment ?? "");
+  const [revenue, setRevenue] = useState("");
+  const [tips, setTips] = useState("");
+  const [bonuses, setBonuses] = useState<AdjustmentDraft[]>([]);
+  const [penalties, setPenalties] = useState<AdjustmentDraft[]>([]);
   const [conflicts, setConflicts] = useState<AccountConflict[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const workplace = workplaces.find((w) => w.id === workplaceId);
   const mutation = useMutation({
-    mutationFn: (input: { type: "shift_create" | "shift_edit"; payload: Record<string, unknown> }) =>
+    mutationFn: (input: { type: "shift_create" | "shift_create_completed" | "shift_edit"; payload: Record<string, unknown> }) =>
       write({ data: { key: crypto.randomUUID(), type: input.type, payload: input.payload } }),
     onSuccess: async () => {
       toast.success(initial ? "Смена обновлена" : "Смена сохранена");
