@@ -19,7 +19,7 @@ describe("workplace form protected write path", () => {
     fireEvent.click(screen.getByRole("button", { name: "Добавить место работы" }));
     fireEvent.change(screen.getByLabelText("Название рабочего места"), { target: { value: "«Светски»" } });
     fireEvent.change(screen.getByLabelText("Цель по выручке"), { target: { value: "1250000" } });
-    fireEvent.click(screen.getByRole("button", { name: "Сохранить", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: /^Сохранить$/ }));
     await waitFor(() => expect(write).toHaveBeenCalledOnce());
     const data = write.mock.calls[0]?.[0].data;
     expect(data.type).toBe("workplace_edit");
@@ -32,7 +32,7 @@ describe("workplace form protected write path", () => {
     mount({ ...settings, workplaces: [{ id: "w", name: "Бар", color: "green", timezone: "Europe/Moscow", revenue_goal: 1250000, revision: 3, rates: null, commission: null }] });
     fireEvent.click(screen.getByRole("button", { name: "Изменить" }));
     fireEvent.change(screen.getByLabelText("Цель по выручке"), { target: { value: "" } });
-    fireEvent.click(screen.getByRole("button", { name: "Сохранить", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: /^Сохранить$/ }));
     await waitFor(() => expect(write).toHaveBeenCalledOnce());
     expect(write.mock.calls[0]?.[0].data.payload).toMatchObject({ id: "w", expected_revision: 3, revenue_goal: null });
   });

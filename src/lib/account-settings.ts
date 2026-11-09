@@ -39,10 +39,10 @@ export function workplaceGoalError(value: unknown): string | null {
 
 /** Shared with the server boundary; DB still checks the full allow-list, identity and revision. */
 export function validateWorkplaceEdit(payload: Record<string, unknown>) {
-  if ("name" in payload && (typeof payload.name !== "string" || !payload.name.trim())) throw new Error("Укажите название рабочего места.");
-  if ("color" in payload && (typeof payload.color !== "string" || !["sky", "green", "amber", "rose", "violet", "orange"].includes(payload.color))) throw new Error("Выберите цвет рабочего места из палитры.");
+  if ("name" in payload && (typeof payload["name"] !== "string" || !payload["name"].trim())) throw new Error("Укажите название рабочего места.");
+  if ("color" in payload && (typeof payload["color"] !== "string" || !["sky", "green", "amber", "rose", "violet", "orange"].includes(payload["color"]))) throw new Error("Выберите цвет рабочего места из палитры.");
   if ("revenue_goal" in payload) {
-    const error = workplaceGoalError(payload.revenue_goal);
+    const error = workplaceGoalError(payload["revenue_goal"]);
     if (error) throw new Error(error);
   }
 }
