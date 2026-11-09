@@ -23,9 +23,9 @@ describe("personal profile writes", () => {
     expect(() => publishCommissionPayload("w", "2026-12", "fixed", 120, [])).toThrow();
   });
   it("publishing rates carries fixed payments over unchanged", () => {
-    const p = publishRatesPayload("w", "2026-11-09", [{ start: "10:00", end: "18:00", hourly: 300 }], [{ id: "f", kind: "fixed", start_time: null, end_time: null, hourly: null, fixed_amount: 500, label: "Выход", weekdays: [], sort_order: 0 }]);
+    const p = publishRatesPayload("w", "2026-11-09", [{ label: "Дневная", start: "10:00", end: "18:00", hourly: "300" }], [{ id: "f", kind: "fixed", start_time: null, end_time: null, hourly: null, fixed_amount: 500, label: "Выход", weekdays: [], sort_order: 0 }]);
     expect(p.intervals).toHaveLength(2);
-    expect(p.intervals[1]).toMatchObject({ kind: "fixed", fixed_amount: 500, hourly: null });
+    expect(p.intervals[1]).toMatchObject({ kind: "fixed", fixed_amount: "500", hourly: null });
   });
 });
 
