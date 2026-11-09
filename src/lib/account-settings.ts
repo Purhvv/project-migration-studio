@@ -27,6 +27,15 @@ export function validGoal(key: GoalKey, value: number | null): boolean {
   return key === "shifts_goal" ? Number.isInteger(value) : true;
 }
 
+/** workplace_edit: create (no expected_revision) or edit; revenue goal belongs to this workplace only, null = unset. */
+export function workplaceEditPayload(initial: Pick<AccountWorkplace, "id" | "revision"> | null, name: string, color: WorkplaceColor, revenueGoal: number | null, newId: () => string = () => crypto.randomUUID()) {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Укажите название");
+  if (revenueGoal !== null && (!Number.isFinite(revenueGoal) || revenueGoal <= 0)) throw new Error("Цель по выручке должна быть больше 0");
+  const base = { name: trimmed, color, revenue_goal: revenueGoal };
+  return initial ? { id: initial.id, expected_revision: initial.revision, ...base } : { id: newId(), ...base };
+}
+
 export type HourlyDraft = { start: string; end: string; hourly: number };
 
 /** Rates are versioned: a change publishes a new version; existing fixed payments are carried over unchanged. */
