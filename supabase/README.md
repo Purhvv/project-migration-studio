@@ -19,7 +19,8 @@ Apply migrations in ascending filename order only after separate approval, a bac
 - `tests/v3_contract.sql`: catalog contracts and pure monetary/time expressions, without fixture rows.
 - `tests/v3_1_contract.sql`: stage 2.1 catalog and validator contracts, without fixture rows.
 - `tests/v3_1_scenarios.sql`: 11 permanent scenario tests (Largest Remainder, revisions, future recalculation, status machine, RLS, idempotency, trash, account deletion, DST, validators). Runs only in a disposable empty database with `PGOPTIONS='-c app.shiftly_test_env=on'`; single transaction, rolled back — no test data persists.
-- `tests/v3_1_concurrency.sh`: real parallel-session tests (concurrent publications, edit conflicts, recalc vs complete). Requires `TEST_DB_DSN` pointing at a disposable database; cleans up its fixture user via trap. Never run any test against Cloud or a working database.
+- `tests/v3_1_concurrency.sh`: real parallel sessions; independent external confirmation, pinned /tmp Unix socket, read-only preflight, no Auth replacement; drops the ENTIRE marked disposable database on success/error/INT/TERM. Arbitrary DSNs are rejected. External owner must finally destroy the cluster, including after SIGKILL or cleanup failure. Never run against Cloud or a working database.
+- `tests/v3_1_harness_safety.py`: permanent local regression checks for preflight refusals, three C1–C3 rounds, SQL-error and signal cleanup. Requires an independently prepared marked `shiftly_disposable_seed` on PostgreSQL 17.11 (port 54399); changes only this disposable environment. The owner must destroy the entire cluster afterwards.
 - `STAGE2_REPORT.md`: validation evidence, contradictions, missing end-to-end coverage and release blockers, including the stage 2.1 fix/test report (57 isolated scenario checks, all passed).
 
 ## Security and callers
@@ -28,7 +29,28 @@ Apply migrations in ascending filename order only after separate approval, a bac
 
 All changes in one RPC are a single PostgreSQL transaction. Operation keys are unique within an owner. Same key/content replays the stored result; different content raises a conflict. Per-owner advisory locking establishes a deterministic order for moves, with additional workplace-month serialization. This intentionally trades concurrency within one owner for correctness; different owners remain independent.
 
-Monetary payload values are canonical decimal strings or JSON null, never computed totals. Fixed payment snapshots come from sealed server-side rules. Financial rule and adjustment subobjects currently cast NUMERIC directly; strict nested canonical-string validation remains a pre-release gate documented in the report.
+Monetary payload values are canonical decimal strings or JSON null, never computed totals. Fixed payment snapshots come from sealed server-side rules. Stage 2.1 validates nested money and rejects JSON numbers/unknown fields.
+
+## Settled v3 decisions
+
+- `profiles.monthly_goal`: NUMERIC(14,2).
+- `workplaces.revenue_goal`: NUMERIC(14,2).
+- A rate_interval_id may source a fixed payment for a shift only once: UNIQUE(shift_id, rate_interval_id). These are approved, not unresolved gates; migrations remain unchanged.
+
+## Local concurrency run (destructive; never Cloud)
+
+The independent owner first prepares a fresh PostgreSQL 17.11 cluster under `/tmp/shiftly-disposable-…` with TCP disabled, test roles/minimal Auth and the nine unchanged migrations. The target database name must start `shiftly_disposable_`; the owner sets its database COMMENT to `shiftly-disposable-local-v1`. Preflight checks actual server metadata, not only names/GUC. No existing project is an acceptable target.
+
+```sh
+SHIFTLY_LOCAL_TEST_CONFIRM=DESTROY_DISPOSABLE_LOCAL_DATABASE \
+PGOPTIONS='-c app.shiftly_test_env=on' \
+TEST_CLUSTER_DIR=/tmp/shiftly-disposable-REPLACE \
+TEST_DB_NAME=shiftly_disposable_REPLACE \
+TEST_DB_PORT=54399 \
+bash supabase/tests/v3_1_concurrency.sh
+```
+
+The REPLACE tokens are documentation placeholders, not an executable setup. Use lowercase database suffixes. Successful preflight arms whole-database cleanup; rejected preflight makes no schema/data changes. Auth is never rewritten by this harness. The external owner must stop/remove the entire cluster after testing; no trap can handle SIGKILL/power loss. Safety regression command for the marked disposable seed: `TEST_CLUSTER_DIR=<local cluster> python3 supabase/tests/v3_1_harness_safety.py`.
 
 ## Known approval gates
 
