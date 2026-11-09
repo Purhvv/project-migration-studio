@@ -34,7 +34,7 @@ describe("workplaceEditPayload", () => {
     expect(workplaceEditPayload(null, " Бар ", "green", 50000, () => "id1")).toEqual({ id: "id1", name: "Бар", color: "green", revenue_goal: 50000 });
   });
   it("edits with expected revision; empty goal stays unset", () => {
-    expect(workplaceEditPayload({ id: "w", revision: 4 }, "Кафе", "blue", null)).toEqual({ id: "w", expected_revision: 4, name: "Кафе", color: "blue", revenue_goal: null });
+    expect(workplaceEditPayload({ id: "w", revision: 4 }, "Кафе", "sky", null)).toEqual({ id: "w", expected_revision: 4, name: "Кафе", color: "sky", revenue_goal: null });
   });
   it("rejects empty name and non-positive goal", () => {
     expect(() => workplaceEditPayload(null, "  ", "green", null)).toThrow();
