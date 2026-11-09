@@ -155,6 +155,34 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
 
       <Field label="Комментарий"><Textarea aria-label="Комментарий" rows={2} placeholder="Необязательно" value={comment} onChange={(e) => setComment(e.target.value)} /></Field>
 
+      {asCompleted && (
+        <Panel className="space-y-4 p-4">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <StatusIcon status="completed" />
+            <span>Смена уже завершилась — сохранится как завершённая</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="min-w-0 text-muted-foreground">Базовая оплата по ставкам</span>
+            <Money value={estimate?.amount ?? null} className="shrink-0 font-semibold" />
+          </div>
+          {estimate && !estimate.hasRates && <p className="text-xs text-muted-foreground">Для этого места на дату смены нет действующих ставок — базовая оплата неизвестна.</p>}
+          {estimate?.hasRates && estimate.uncoveredMinutes > 0 && (
+            <p className="text-xs text-muted-foreground">{formatHours(estimate.uncoveredMinutes)} смены не покрыты ставками и не учтены в сумме.</p>
+          )}
+          <Field label="Выручка"><NumberInput aria-label="Выручка" placeholder="Неизвестна" value={revenue} onValueChange={setRevenue} /></Field>
+          <Field label="Личные чаевые"><NumberInput aria-label="Личные чаевые" placeholder="Неизвестны" value={tips} onValueChange={setTips} /></Field>
+          <AdjustmentList title="Премии" items={bonuses} onChange={setBonuses} kind="bonus" />
+          <AdjustmentList title="Штрафы" items={penalties} onChange={setPenalties} kind="penalty" />
+          <div className="space-y-1.5 border-t pt-3">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0 font-medium">Итог заработка</span>
+              <Money value={knownTotal} className="shrink-0 font-semibold" />
+            </div>
+            <p className="text-xs text-muted-foreground">Базовая оплата + чаевые + премии − штрафы. Процент от выручки добавится по правилам месяца после сохранения; выручка сама в заработок не входит.</p>
+          </div>
+        </Panel>
+      )}
+
       {conflicts.length > 0 && (
         <div className="space-y-2 rounded-2xl border border-negative/40 bg-negative/5 p-4">
           <p className="flex items-center gap-2 text-sm font-medium text-negative"><AlertTriangle className="size-4 shrink-0" />Пересечение с другой сменой</p>
@@ -181,7 +209,7 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
             <p className="text-xs text-muted-foreground">Без чаевых, процента от выручки, премий и штрафов.</p>
           </div>
         )}
-        <Button type="submit" disabled={mutation.isPending || deletion.isPending || !workplaces.length} className="w-full" size="lg">Сохранить смену</Button>
+        <Button type="submit" disabled={mutation.isPending || deletion.isPending || !workplaces.length} className="w-full" size="lg">{asCompleted ? "Сохранить завершённую смену" : "Сохранить смену"}</Button>
         {initial && (
           <Button type="button" variant="ghost" className="w-full text-negative" onClick={() => setConfirmDelete(true)} disabled={mutation.isPending || deletion.isPending}>
             <Trash2 className="size-4" />Удалить смену
