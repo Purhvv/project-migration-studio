@@ -4,7 +4,9 @@ import { Plus } from "lucide-react";
 import { authHead } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyEarnings, NoShifts, NoWorkplaces, sessionName } from "@/components/personal/PersonalEmpty";
+import { NoShifts, NoWorkplaces, sessionName } from "@/components/personal/PersonalEmpty";
+import { PersonalEarnings } from "@/components/personal/PersonalEarnings";
+import { completedAccountShifts } from "@/lib/account-statistics";
 import { PersonalShiftRow } from "@/components/personal/PersonalCalendar";
 import { ErrorState, Panel, Section } from "@/components/shared/primitives";
 import { WorkplaceDot } from "@/components/shifts/shift-ui";
@@ -23,8 +25,12 @@ function PersonalHome() {
   const workplaces = settings.data?.workplaces ?? [];
   const wpMap = new Map(workplaces.map((w) => [w.id, w]));
   const today = workplaceToday(settings.data?.profile.timezone ?? "Europe/Moscow");
+  const timezone = settings.data?.profile.timezone ?? "Europe/Moscow";
+  const completed = completedAccountShifts(shifts.data ?? [], null, timezone);
+  const monthly = completedAccountShifts(shifts.data ?? [], today.slice(0, 7), timezone);
   const upcoming = (shifts.data ?? [])
-    .filter((s) => s.local_start_date >= today && (s.status === "planned" || s.status === "in_progress" || s.status === "pending"))
+    .filter((s) => s.status === "in_progress" || s.status === "pending" || (s.status === "planned" && Date.parse(s.ends_at) > Date.now()))
+    .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at))
     .slice(0, 5);
 
   return (
@@ -33,7 +39,11 @@ function PersonalHome() {
         <p className="text-sm text-muted-foreground">Личное пространство</p>
         <h1 className="font-display text-2xl font-semibold break-words">{sessionName(accountUser)}</h1>
       </header>
-      <EmptyEarnings />
+      <Section>
+        {shifts.isPending || settings.isPending ? <Skeleton className="h-40 rounded-2xl" />
+          : shifts.isError || settings.isError ? <ErrorState onRetry={() => { shifts.refetch(); settings.refetch(); }} />
+          : <PersonalEarnings shifts={monthly} title="Заработок за месяц" />}
+      </Section>
       <Section title="Места работы">
         {settings.isPending ? (
           <Skeleton className="h-24 rounded-2xl" />
@@ -69,9 +79,12 @@ function PersonalHome() {
             {upcoming.map((s) => <PersonalShiftRow key={s.id} shift={s} name={wpMap.get(s.workplace_id)?.name} color={wpMap.get(s.workplace_id)?.color} />)}
           </Panel>
         ) : (
-          <NoShifts />
+          shifts.data?.length ? <p className="text-sm text-muted-foreground">Нет ближайших смен</p> : <NoShifts />
         )}
       </Section>
+      {completed.length > 0 && <Section title="Последние завершённые смены" action={<Button asChild size="sm" variant="ghost" className="text-primary"><Link to="/app/stats">Статистика</Link></Button>}>
+        <Panel className="divide-y px-4">{completed.slice(0, 5).map((s) => <div key={s.id} className="pt-3"><p className="text-xs text-muted-foreground">{s.local_start_date.split("-").reverse().join(".")}</p><PersonalShiftRow shift={s} name={wpMap.get(s.workplace_id)?.name} color={wpMap.get(s.workplace_id)?.color} /></div>)}</Panel>
+      </Section>}
     </div>
   );
 }
