@@ -109,10 +109,6 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
     } catch { timing = "future"; }
   }
   const asCompleted = !initial && timing === "past";
-  const money = (v: string) => (v.trim() ? Number(v.trim().replace(",", ".")) : 0);
-  const bonusSum = bonuses.reduce((s, b) => s + money(b.amount), 0);
-  const penaltySum = penalties.reduce((s, p) => s + money(p.amount), 0);
-  const knownTotal = estimate?.amount != null ? estimate.amount + money(tips) + bonusSum - penaltySum : null;
 
   return (
     <form onSubmit={submit} className="space-y-6 px-5 pt-4 pb-6">
@@ -179,9 +175,9 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
           <div className="space-y-1.5 border-t pt-3">
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="min-w-0 font-medium">Итог заработка</span>
-              <Money value={knownTotal} className="shrink-0 font-semibold" />
+              <Money value={null} className="shrink-0 font-semibold" />
             </div>
-            <p className="text-xs text-muted-foreground">Базовая оплата + чаевые + премии − штрафы. Процент от выручки добавится по правилам месяца после сохранения; выручка сама в заработок не входит.</p>
+            <p className="text-xs text-muted-foreground">Итог рассчитает сервер после сохранения с учётом фиксированных выплат и комиссии. Выручка сама в заработок не входит.</p>
           </div>
         </Panel>
       )}

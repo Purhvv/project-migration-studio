@@ -15,6 +15,9 @@ import { estimateAccountPay, shiftActions, shiftCancelPayload, shiftCompletePayl
 import { accountSettingsOptions, accountShiftsOptions } from "@/data/account-queries";
 import { formatHours, fmtDate, shiftMinutes } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { accountShiftFinancesOptions } from "@/data/account-queries";
+import { ShiftFinanceEditor } from "@/components/personal/ShiftFinanceEditor";
+import { ShiftFinanceDetails, ShiftFinanceHistory } from "@/components/personal/ShiftFinanceDetails";
 
 export const Route = createFileRoute("/_authenticated/app/shifts/$id")({
   head: () => authHead("Смена", "Детали смены в личном пространстве Shiftly."),
@@ -31,6 +34,8 @@ function PersonalShiftDetails() {
   const write = useServerFn(accountWrite);
   const shifts = useQuery(accountShiftsOptions(accountUser.id));
   const settings = useQuery(accountSettingsOptions(accountUser.id));
+  const finances = useQuery(accountShiftFinancesOptions(accountUser.id, id));
+  const [financialOpen, setFinancialOpen] = useState(false);
   const [confirm, setConfirm] = useState<"cancel" | "delete" | null>(null);
 
   const action = useMutation({
@@ -46,7 +51,7 @@ function PersonalShiftDetails() {
   });
 
   if (shifts.isPending || settings.isPending) return <div className="px-5 pt-6"><Skeleton className="h-96 rounded-2xl" /></div>;
-  if (shifts.isError) return <div className="px-5 pt-6"><ErrorState onRetry={() => shifts.refetch()} /></div>;
+  if (shifts.isError || settings.isError) return <div className="px-5 pt-6"><ErrorState onRetry={() => { shifts.refetch(); settings.refetch(); }} /></div>;
   const shift = (shifts.data ?? []).find((s) => s.id === id);
   if (!shift) {
     return (
@@ -77,9 +82,7 @@ function PersonalShiftDetails() {
         <p className="mt-3 flex items-center gap-2 text-sm">{workplace && <WorkplaceDot color={workplace.color} />}<span className={cn("min-w-0 break-words", shift.status === "cancelled" && "line-through")}>{workplace?.name ?? "Место работы"}</span></p>
         {shift.status === "completed" && <div className="mt-5 border-t pt-4"><p className="text-xs text-muted-foreground">Общий заработок</p><p className="break-words font-display text-3xl font-semibold"><Money value={shift.earnings} tone={shift.earnings !== null && shift.earnings < 0 ? "negative" : "default"} /></p></div>}
       </div></Section>
-      {shift.status === "completed" && <Section title="Детали"><Panel className="divide-y text-sm">
-        {[{ label: `Личная выручка · ${workplace?.name ?? "Место работы"}`, value: shift.revenue }, { label: "Ставка", value: shift.base_pay }, { label: "Личные чаевые", value: shift.tips }].map((row) => <div key={row.label} className="flex items-start justify-between gap-3 px-4 py-3"><span className="min-w-0 text-muted-foreground">{row.label}</span><Money value={row.value} className="shrink-0 font-medium" /></div>)}
-      </Panel></Section>}
+      {shift.status === "completed" && (finances.isPending ? <Section><Skeleton className="h-48 rounded-2xl" /></Section> : finances.isError ? <Section><ErrorState onRetry={() => finances.refetch()} /></Section> : finances.data && <ShiftFinanceDetails finances={finances.data} workplaceName={workplace?.name ?? "Место работы"} />)}
       {estimate && <Section title="Время и оплата">
         <Panel className="space-y-2 p-4">
           {shift.status === "completed" ? (
@@ -104,8 +107,9 @@ function PersonalShiftDetails() {
           <Button className="w-full" size="lg" disabled={action.isPending} onClick={() => run("shift_start", shiftStartPayload(shift))}>Начать смену</Button>
         )}
         {actions.includes("complete") && (
-          <Button className="w-full" size="lg" disabled={action.isPending} onClick={() => run("shift_complete", shiftCompletePayload(shift))}>Завершить смену</Button>
+          <Button className="w-full" size="lg" disabled={action.isPending} onClick={() => setFinancialOpen(true)}>Завершить смену</Button>
         )}
+        {shift.status === "completed" && <Button variant="secondary" className="w-full" onClick={() => setFinancialOpen(true)}><Pencil className="size-4" />Редактировать финансы</Button>}
         {shift.status !== "cancelled" && (
           <Button asChild variant="secondary" className="w-full">
             <Link to="/app/shifts/$id/edit" params={{ id: shift.id }}><Pencil className="size-4" />Редактировать</Link>
@@ -119,6 +123,12 @@ function PersonalShiftDetails() {
         </Button>
       </div>
       {shift.comment && <Section title="Комментарий"><p className="break-words text-sm text-muted-foreground">{shift.comment}</p></Section>}
+      {finances.data && <ShiftFinanceHistory finances={finances.data} />}
+
+      <Drawer open={financialOpen} onOpenChange={setFinancialOpen}><DrawerContent>
+        <DrawerHeader className="text-left"><DrawerTitle>{shift.status === "completed" ? "Редактировать финансы" : "Завершить смену"}</DrawerTitle><DrawerDescription>Фактические начисления смены. Заполните известные суммы.</DrawerDescription></DrawerHeader>
+        <div className="max-h-[70dvh] overflow-y-auto px-4 pb-8">{finances.isPending ? <Skeleton className="h-48 rounded-2xl" /> : finances.isError ? <ErrorState onRetry={() => finances.refetch()} /> : finances.data && <ShiftFinanceEditor key={finances.data.shift.revision} finances={finances.data} userId={accountUser.id} onSaved={() => { setFinancialOpen(false); toast.success(shift.status === "completed" ? "Финансы сохранены" : "Смена завершена"); }} onCancel={() => setFinancialOpen(false)} />}</div>
+      </DrawerContent></Drawer>
 
       <Drawer open={confirm !== null} onOpenChange={(o) => !o && setConfirm(null)}>
         <DrawerContent>

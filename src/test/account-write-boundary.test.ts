@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { publishCommissionPayload, workplaceEditPayload } from "@/lib/account-settings";
+import { financialShiftPayload } from "@/lib/account-finances";
+import type { AccountShift } from "@/lib/account-shifts";
 
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock("@tanstack/react-start", () => {
@@ -21,6 +23,15 @@ import { accountWrite } from "@/lib/account.functions";
 beforeEach(() => { rpc.mockReset(); rpc.mockResolvedValue({ data: { id: "saved" }, error: null }); });
 const key = "00000000-0000-4000-8000-000000000001";
 describe("accountWrite RPC forwarding (mocked Supabase, not hosted verification)", () => {
+  it("forwards complete/edit finances in one RPC with decimals, NULL and both revisions", async () => {
+    const shift: AccountShift = { id: key, workplace_id: key, local_start_date: "2026-11-12", local_end_date: "2026-11-12", start_time: "10:00", end_time: "17:00", starts_at: "2026-11-12T07:00:00Z", ends_at: "2026-11-12T14:00:00Z", status: "completed", revenue: null, tips: null, base_pay: null, earnings: null, comment: null, revision: 7, revenue_revision: 3 };
+    const payload = financialShiftPayload(shift, { revenue: "18000.25", tips: "", adjustments: [{ kind: "bonus", label: "Выходной", amount: "500.25" }] });
+    for (const type of ["shift_complete", "shift_edit"] as const) {
+      await accountWrite({ data: { key, type, payload } });
+      expect(rpc).toHaveBeenLastCalledWith("shiftly_write", { p_key: key, p_type: type, p_payload: payload });
+    }
+    expect(rpc).toHaveBeenCalledTimes(2);
+  });
   it("creates and edits workplaces with the real RPC argument names and preserves NULL/revision", async () => {
     for (const payload of [workplaceEditPayload(null, "Бар", "green", "1250000", () => key), workplaceEditPayload({ id: key, revision: 3 }, "Кафе", "sky", null)]) {
       await accountWrite({ data: { key, type: "workplace_edit", payload } });

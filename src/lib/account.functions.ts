@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { selectRateVersions, validateRatePublication, workplaceToday } from "@/lib/account-rates";
 import { isProfileOperation, validateWorkplaceEdit, validateCommissionPublication, writeErrorMessage, type AccountSettings, type AccountWorkplace, type AccountInterval, type ProfileOperation } from "@/lib/account-settings";
 import { validateShiftWrite, SHIFT_OPERATIONS, type AccountShift, type ShiftOperation } from "@/lib/account-shifts";
+import type { ShiftFinances } from "@/lib/account-finances";
 
 // The generated middleware checks claims. This additional boundary confirms the
 // account with Auth, including revocation/deletion, before private reads.
@@ -72,6 +73,29 @@ export const getAccountShifts = createServerFn({ method: "POST" })
       .order("start_time");
     if (error) throw new Error("SHIFTLY_SHIFTS_UNAVAILABLE");
     return data.map((s) => ({ ...s, status: s.status as AccountShift["status"], start_time: s.start_time.slice(0, 5), end_time: s.end_time.slice(0, 5) }));
+  });
+
+/** Detailed finances are isolated from home/statistics reads for stage 4.4. */
+export const getAccountShiftFinances = createServerFn({ method: "POST" })
+  .middleware([verifiedUser])
+  .inputValidator((input: { id: string }) => {
+    if (!input || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.id)) throw new Error("Некорректная смена.");
+    return input;
+  })
+  .handler(async ({ context, data }): Promise<ShiftFinances> => {
+    const db = context.supabase;
+    const uid = context.verifiedUserId;
+    const row = await db.from("shifts").select("id, workplace_id, local_start_date, local_end_date, start_time, end_time, starts_at, ends_at, status, revenue, tips, base_pay, fixed_pay, commission_pay, commission_source, earnings, comment, revision, revenue_revision")
+      .eq("user_id", uid).eq("id", data.id).is("deleted_at", null).single();
+    if (row.error) throw new Error("Не удалось загрузить финансы смены.");
+    const [adjustments, fixed, commission, events] = await Promise.all([
+      db.from("shift_adjustments").select("id, kind, label, amount, comment, sort_order").eq("user_id", uid).eq("shift_id", data.id).order("sort_order").order("id"),
+      db.from("shift_fixed_payments").select("id, amount_snapshot, label_snapshot").eq("user_id", uid).eq("shift_id", data.id).order("selected_at"),
+      db.from("monthly_commission_results").select("state, calculation_available, applied_percent, missing_revenue_count").eq("user_id", uid).eq("workplace_id", row.data.workplace_id).eq("month", row.data.local_start_date.slice(0, 7) + "-01").maybeSingle(),
+      db.from("shift_financial_events").select("id, operation_id, event_type, created_at, before_snapshot, after_snapshot").eq("user_id", uid).eq("subject_shift_id", data.id).order("created_at", { ascending: false }).order("id").limit(100),
+    ]);
+    if (adjustments.error || fixed.error || commission.error || events.error) throw new Error("Не удалось загрузить детали начислений. Попробуйте ещё раз.");
+    return { shift: { ...row.data, status: row.data.status as AccountShift["status"], start_time: row.data.start_time.slice(0, 5), end_time: row.data.end_time.slice(0, 5) }, adjustments: adjustments.data, fixedPayments: fixed.data, commission: commission.data, events: events.data };
   });
 
 /** The only write path: approved shiftly_write RPC; the database derives the owner from auth.uid(). */
