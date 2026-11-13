@@ -59,7 +59,7 @@ export function financialShiftPayload(shift: AccountShift, values: { revenue: st
 }
 
 /** A failed request can be retried with the same key; changing the payload starts a new operation. */
-export function financialRequest(previous: { key: string; signature: string } | null, type: string, payload: Record<string, unknown>, newKey = () => crypto.randomUUID()) {
+export function financialRequest(previous: { key: string; signature: string } | null, type: string, payload: Record<string, unknown>, newKey: () => string = () => crypto.randomUUID()) {
   const signature = JSON.stringify({ type, payload });
   return previous?.signature === signature ? previous : { key: newKey(), signature };
 }
