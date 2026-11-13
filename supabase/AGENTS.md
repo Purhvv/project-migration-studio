@@ -1,0 +1,3 @@
+- Monthly closure runs SQL-only through one pg_cron job; closure serializes owner then workplace/month before row locks and reuses existing NUMERIC payroll, commission, operation and audit helpers.
+- Confirmed subtotals are read-only NUMERIC sums scoped by auth.uid(); full NULL payroll remains NULL, and monthly preliminary state also marks known-revenue shift subtotals preliminary.
+- Automatically zeroed revenue is a current-value flag cleared on correction by the existing constraint; its past provenance remains in immutable financial audit snapshots.

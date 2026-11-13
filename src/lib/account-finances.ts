@@ -9,6 +9,8 @@ export type FinancialShift = AccountShift & {
 };
 export type FinancialAdjustment = { id: string; kind: string; label: string; amount: number | null; comment: string | null; sort_order: number };
 export type ShiftFinances = {
+  /** PostgreSQL NUMERIC subtotal; presentation converts only the returned value. */
+  confirmedEarnings?: { value: number | null; partial: boolean };
   shift: FinancialShift;
   adjustments: FinancialAdjustment[];
   fixedPayments: Array<{ id: string; amount_snapshot: number | null; label_snapshot: string }>;

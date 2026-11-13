@@ -14,11 +14,12 @@ export function ShiftFinanceDetails({ finances, workplaceName }: { finances: Shi
     ...adjustments.map((a) => ({ label: a.label, value: a.amount, kind: a.kind })),
   ];
   return <Section title="Детали"><Panel className="divide-y text-sm">{rows.map((r, i) => <div key={i} className="flex items-start justify-between gap-3 px-4 py-3"><span className="min-w-0 break-words text-muted-foreground">{r.label}</span><Money value={r.value} tone={r.kind === "bonus" ? "positive" : r.kind === "penalty" ? "negative" : "default"} {...(r.kind === "bonus" ? { sign: "+" as const } : r.kind === "penalty" ? { sign: "−" as const } : {})} className="shrink-0 font-medium" /></div>)}<div className="flex justify-between gap-3 px-4 py-3 font-semibold"><span>Итоговый заработок</span><Money value={shift.earnings} tone={shift.earnings !== null && shift.earnings < 0 ? "negative" : "default"} /></div></Panel>
-    <p className="mt-3 text-xs text-muted-foreground">{commission?.calculation_available ? `Применённый процент: ${formatNumber(commission.applied_percent)}%. ${commission.state === "preliminary" ? `Предварительный расчёт: ${commission.missing_revenue_count} смен с неизвестной выручкой.` : "Расчёт комиссии подтверждён."}` : "Правила комиссии не настроены — комиссия неизвестна."}</p>
+    {finances.confirmedEarnings?.partial && <p className="mt-3 text-sm text-muted-foreground">Предварительные начисления: <Money value={finances.confirmedEarnings.value} partial tone={finances.confirmedEarnings.value !== null && finances.confirmedEarnings.value < 0 ? "negative" : "default"} /> · только известные суммы, не окончательный итог.</p>}
+    <p className="mt-3 text-xs text-muted-foreground">{commission?.calculation_available ? `Применённый процент: ${formatNumber(commission.applied_percent)}%. ${commission.state === "preliminary" ? `Предварительный расчёт: ${commission.missing_revenue_count} смен с неизвестной выручкой. Итог может измениться.` : "Расчёт комиссии подтверждён."}` : "Правила комиссии не настроены — комиссия неизвестна."}</p>
   </Section>;
 }
 
-const EVENT_LABELS: Record<string, string> = { create: "Создание смены", edit: "Изменение смены", complete: "Завершение смены", commission_recalc: "Пересчёт комиссии", revenue_correction: "Исправление выручки", start: "Начало смены" };
+const EVENT_LABELS: Record<string, string> = { create: "Создание смены", edit: "Изменение смены", complete: "Завершение смены", commission_recalc: "Пересчёт комиссии", revenue_correction: "Исправление выручки", auto_zero_revenue: "Автоматическое обнуление выручки", month_close: "Закрытие месяца", start: "Начало смены" };
 const snapshot = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 
 export function ShiftFinanceHistory({ finances }: { finances: ShiftFinances }) {

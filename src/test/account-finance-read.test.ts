@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const reads = vi.hoisted(() => ({ calls: [] as Array<{ table: string; filters: Array<[string, unknown]> }>, fail: "" }));
+const reads = vi.hoisted(() => ({ calls: [] as Array<{ table: string; filters: Array<[string, unknown]> }>, rpc: [] as unknown[], fail: "" }));
 vi.mock("@tanstack/react-start", () => {
   const chain = () => {
     let validate = (data: unknown) => data;
@@ -10,6 +10,9 @@ vi.mock("@tanstack/react-start", () => {
       const result = () => ({ error: reads.fail === table ? { message: "denied" } : null, data: table === "shifts" ? { id: "22222222-2222-2222-2222-222222222222", workplace_id: "w", local_start_date: "2026-11-12", start_time: "10:00:00", end_time: "17:00:00", status: "completed" } : table === "monthly_commission_results" ? null : [] });
       const query = { select: () => query, eq: (key: string, value: unknown) => { call.filters.push([key, value]); return query; }, is: (key: string, value: unknown) => { call.filters.push([key, value]); return query; }, order: () => query, limit: () => query, single: async () => result(), maybeSingle: async () => result(), then: (resolve: (r: ReturnType<typeof result>) => unknown) => Promise.resolve(result()).then(resolve) };
       return query;
+    }, rpc: (name: string, args: unknown) => {
+      reads.rpc.push({ name, args });
+      return Promise.resolve({ error: reads.fail === "subtotal" ? {} : null, data: [{ shift_id: "22222222-2222-2222-2222-222222222222", confirmed_amount: 3050.25, partial: true }] });
     } } } }) };
     return builder;
   };
@@ -18,11 +21,13 @@ vi.mock("@tanstack/react-start", () => {
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: {} }));
 import { getAccountShiftFinances } from "@/lib/account.functions";
 
-beforeEach(() => { reads.calls = []; reads.fail = ""; });
+beforeEach(() => { reads.calls = []; reads.rpc = []; reads.fail = ""; });
 describe("detailed finance owner reads (mocked client)", () => {
   it("scopes all five reads to verified owner and the specific shift/month", async () => {
     const id = "22222222-2222-2222-2222-222222222222";
-    await getAccountShiftFinances({ data: { id } });
+    const result = await getAccountShiftFinances({ data: { id } });
+    expect(reads.rpc).toEqual([{ name: "shiftly_confirmed_earnings", args: { p_shift: id } }]);
+    expect(result.confirmedEarnings).toEqual({ value: 3050.25, partial: true });
     expect(reads.calls.map((c) => c.table)).toEqual(["shifts", "shift_adjustments", "shift_fixed_payments", "monthly_commission_results", "shift_financial_events"]);
     for (const call of reads.calls) expect(call.filters).toContainEqual(["user_id", "verified-owner"]);
     expect(reads.calls[0]?.filters).toContainEqual(["deleted_at", null]);
@@ -32,6 +37,10 @@ describe("detailed finance owner reads (mocked client)", () => {
   });
   it("does not substitute missing financial rows with invented data on read failure", async () => {
     reads.fail = "shift_adjustments";
+    await expect(getAccountShiftFinances({ data: { id: "22222222-2222-2222-2222-222222222222" } })).rejects.toThrow("Не удалось загрузить детали начислений");
+  });
+  it("fails closed when NUMERIC subtotal is unavailable", async () => {
+    reads.fail = "subtotal";
     await expect(getAccountShiftFinances({ data: { id: "22222222-2222-2222-2222-222222222222" } })).rejects.toThrow("Не удалось загрузить детали начислений");
   });
 });
