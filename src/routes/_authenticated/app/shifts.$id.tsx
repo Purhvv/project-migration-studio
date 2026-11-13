@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState, Money, Panel, Section } from "@/components/shared/primitives";
-import { STATUS_META, StatusIcon, WorkplaceDot } from "@/components/shifts/shift-ui";
+import { StatusBadge, shiftDayLabel, WorkplaceDot } from "@/components/shifts/shift-ui";
 import { accountWrite } from "@/lib/account.functions";
 import { estimateAccountPay, shiftActions, shiftCancelPayload, shiftCompletePayload, shiftDeletePayload, shiftStartPayload } from "@/lib/account-shifts";
 import { accountSettingsOptions, accountShiftsOptions } from "@/data/account-queries";
@@ -64,29 +64,23 @@ function PersonalShiftDetails() {
   const run = (type: ShiftActionType, payload: Record<string, unknown>) => action.mutate({ type, payload });
 
   return (
-    <div className="space-y-5 px-5 pt-4 pb-6">
-      <header className="flex items-center gap-2">
+    <div className="space-y-6 pb-6">
+      <header className="flex items-center gap-2 px-5 pt-4">
         <Button type="button" size="icon" variant="ghost" className="-ml-2 rounded-full" onClick={() => router.history.back()} aria-label="Назад">
           <ChevronLeft className="size-5" />
         </Button>
         <h1 className="font-display text-xl font-semibold">Смена</h1>
       </header>
 
-      <Panel className="space-y-3 p-4">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          {workplace && <WorkplaceDot color={workplace.color} />}
-          <span className={cn("truncate", shift.status === "cancelled" && "line-through")}>{workplace?.name ?? "Место работы"}</span>
-        </div>
-        <p className="text-sm">{fmtDate(shift.local_start_date, "EEEE, d MMMM")}</p>
-        <p className="text-sm text-muted-foreground tabular">
-          {shift.start_time}–{shift.end_time} · {formatHours(shiftMinutes(shift.start_time, shift.end_time))}
-          {shift.local_end_date !== shift.local_start_date && " · через полночь"}
-        </p>
-        <p className="flex items-center gap-1.5 text-sm text-muted-foreground"><StatusIcon status={shift.status} />{STATUS_META[shift.status].label}</p>
-        {shift.comment && <p className="text-sm text-muted-foreground">{shift.comment}</p>}
-      </Panel>
-
-      <Section>
+      <Section><div className="bg-hero rounded-3xl border p-5 shadow-card">
+        <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="font-semibold">{shiftDayLabel(shift.local_start_date)}</p><p className="mt-1 text-sm text-muted-foreground tabular">{shift.start_time}–{shift.end_time} · {formatHours(shiftMinutes(shift.start_time, shift.end_time))}{shift.local_end_date !== shift.local_start_date && " · через полночь"}</p></div><StatusBadge status={shift.status} /></div>
+        <p className="mt-3 flex items-center gap-2 text-sm">{workplace && <WorkplaceDot color={workplace.color} />}<span className={cn("min-w-0 break-words", shift.status === "cancelled" && "line-through")}>{workplace?.name ?? "Место работы"}</span></p>
+        {shift.status === "completed" && <div className="mt-5 border-t pt-4"><p className="text-xs text-muted-foreground">Общий заработок</p><p className="break-words font-display text-3xl font-semibold"><Money value={shift.earnings} tone={shift.earnings !== null && shift.earnings < 0 ? "negative" : "default"} /></p></div>}
+      </div></Section>
+      {shift.status === "completed" && <Section title="Детали"><Panel className="divide-y text-sm">
+        {[{ label: `Личная выручка · ${workplace?.name ?? "Место работы"}`, value: shift.revenue }, { label: "Ставка", value: shift.base_pay }, { label: "Личные чаевые", value: shift.tips }].map((row) => <div key={row.label} className="flex items-start justify-between gap-3 px-4 py-3"><span className="min-w-0 text-muted-foreground">{row.label}</span><Money value={row.value} className="shrink-0 font-medium" /></div>)}
+      </Panel></Section>}
+      {estimate && <Section title="Время и оплата">
         <Panel className="space-y-2 p-4">
           {shift.status === "completed" ? (
             <div className="flex items-center justify-between gap-3 text-sm">
@@ -103,9 +97,9 @@ function PersonalShiftDetails() {
             <p className="text-xs text-muted-foreground">Без чаевых, процента от выручки, премий и штрафов.</p>
           )}
         </Panel>
-      </Section>
+      </Section>}
 
-      <div className="space-y-3">
+      <div className="space-y-3 px-5">
         {actions.includes("start") && (
           <Button className="w-full" size="lg" disabled={action.isPending} onClick={() => run("shift_start", shiftStartPayload(shift))}>Начать смену</Button>
         )}
@@ -124,6 +118,7 @@ function PersonalShiftDetails() {
           <Trash2 className="size-4" />Удалить смену
         </Button>
       </div>
+      {shift.comment && <Section title="Комментарий"><p className="break-words text-sm text-muted-foreground">{shift.comment}</p></Section>}
 
       <Drawer open={confirm !== null} onOpenChange={(o) => !o && setConfirm(null)}>
         <DrawerContent>
