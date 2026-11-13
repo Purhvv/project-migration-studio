@@ -258,8 +258,9 @@ export function estimateAccountPay(workplace: AccountWorkplace, date: string, st
     const wd = weekdayOf(day);
     const prevWd = (wd + 6) % 7;
     return hourly.find((r) => {
-      const s = toMin(r.start_time!);
-      const e = toMin(r.end_time!);
+      if (!r.start_time || !r.end_time) return false;
+      const s = toMin(r.start_time);
+      const e = toMin(r.end_time);
       const days = r.weekdays?.length ? r.weekdays : [0, 1, 2, 3, 4, 5, 6];
       if (s < e) return minuteOfDay >= s && minuteOfDay < e && days.includes(wd);
       return (minuteOfDay >= s && days.includes(wd)) || (minuteOfDay < e && days.includes(prevWd));
@@ -271,7 +272,7 @@ export function estimateAccountPay(workplace: AccountWorkplace, date: string, st
   let uncovered = 0;
   for (let m = s; m < e; m++) {
     const r = m < 1440 ? rateAt(date, m) : rateAt(nextDay, m - 1440);
-    if (r) sum += r.hourly! / 60;
+    if (r?.hourly !== null && r?.hourly !== undefined) sum += r.hourly / 60;
     else uncovered++;
   }
   return { amount: uncovered === total ? null : Math.round(sum), uncoveredMinutes: uncovered, hasRates: true };

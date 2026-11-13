@@ -32,11 +32,10 @@ export function PersonalGoals({ settings, shifts, month, workplace }: { settings
   })}</Panel><div className="mt-3"><PersonalRevenue shifts={shifts.filter((s) => s.local_start_date.startsWith(month))} workplaces={settings.workplaces} selected={workplace} /></div></Section>;
 }
 
-function ValueChart({ data, field, line = false }: { data: Array<{ key: string; label: string; value: number | null }>; field: string; line?: boolean }) {
+function ValueChart({ data, field }: { data: Array<{ key: string; label: string; value: number | null }>; field: string }) {
   const [selected, setSelected] = useState<string | null>(null);
   if (!data.length || data.every((d) => d.value === null)) return <Panel className="p-5 text-sm text-muted-foreground">{data.length ? "Суммы за выбранный период пока неизвестны" : "Нет данных за выбранный период"}</Panel>;
   const detail = data.find((d) => d.key === selected);
-  const axes = <><XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} /><YAxis width={65} tickFormatter={(v) => formatNumber(v)} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} /></>;
   return <Panel className="p-3"><p className="mb-3 text-xs text-muted-foreground">{field} · ₽</p><ResponsiveContainer width="100%" height={230}>
     <BarChart data={data} margin={{ top: 30, right: 15, bottom: 5, left: 0 }}>
       <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} />
