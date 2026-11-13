@@ -1,17 +1,23 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { useState } from "react";
+import { CalendarPlus, Clock, MapPin } from "lucide-react";
 import { authHead } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { NoShifts, NoWorkplaces, sessionName } from "@/components/personal/PersonalEmpty";
+import { NoWorkplaces, sessionName } from "@/components/personal/PersonalEmpty";
 import { PersonalEarnings } from "@/components/personal/PersonalEarnings";
-import { completedAccountShifts } from "@/lib/account-statistics";
+import { PersonalRevenue } from "@/components/personal/PersonalRevenue";
 import { PersonalShiftRow } from "@/components/personal/PersonalCalendar";
-import { ErrorState, Panel, Section } from "@/components/shared/primitives";
-import { WorkplaceDot } from "@/components/shifts/shift-ui";
+import { WorkplaceChips } from "@/components/shared/WorkplaceChips";
+import { completedAccountShifts } from "@/lib/account-statistics";
+import { accountForecast } from "@/lib/account-presentation";
+import { formatInTimeZone } from "@/lib/account-statistics-time";
+import { EmptyState, ErrorState, MonthSwitcher, Panel, Section } from "@/components/shared/primitives";
+import { shiftDayLabel, StatusBadge, WorkplaceDot } from "@/components/shifts/shift-ui";
 import { accountSettingsOptions, accountShiftsOptions } from "@/data/account-queries";
 import { workplaceToday } from "@/lib/account-rates";
+import { formatHours, shiftMinutes } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/app/")({
   head: () => authHead("Личное пространство", "Ваши смены, рабочие места и заработок в Shiftly."),
@@ -22,69 +28,38 @@ function PersonalHome() {
   const { accountUser } = Route.useRouteContext();
   const settings = useQuery(accountSettingsOptions(accountUser.id));
   const shifts = useQuery(accountShiftsOptions(accountUser.id));
+  const [workplace, setWorkplace] = useState("all");
+  const [chosenMonth, setChosenMonth] = useState<Date | null>(null);
   const workplaces = settings.data?.workplaces ?? [];
   const wpMap = new Map(workplaces.map((w) => [w.id, w]));
-  const today = workplaceToday(settings.data?.profile.timezone ?? "Europe/Moscow");
   const timezone = settings.data?.profile.timezone ?? "Europe/Moscow";
-  const completed = completedAccountShifts(shifts.data ?? [], null, timezone);
-  const monthly = completedAccountShifts(shifts.data ?? [], today.slice(0, 7), timezone);
-  const upcoming = (shifts.data ?? [])
-    .filter((s) => s.status === "in_progress" || s.status === "pending" || (s.status === "planned" && Date.parse(s.ends_at) > Date.now()))
-    .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at))
-    .slice(0, 5);
-
-  return (
-    <div className="space-y-8">
-      <header className="px-5 pt-6">
-        <p className="text-sm text-muted-foreground">Личное пространство</p>
-        <h1 className="font-display text-2xl font-semibold break-words">{sessionName(accountUser)}</h1>
-      </header>
-      <Section>
-        {shifts.isPending || settings.isPending ? <Skeleton className="h-40 rounded-2xl" />
-          : shifts.isError || settings.isError ? <ErrorState onRetry={() => { shifts.refetch(); settings.refetch(); }} />
-          : <PersonalEarnings shifts={monthly} title="Заработок за месяц" />}
-      </Section>
-      <Section title="Места работы">
-        {settings.isPending ? (
-          <Skeleton className="h-24 rounded-2xl" />
-        ) : settings.isError ? (
-          <ErrorState onRetry={() => settings.refetch()} />
-        ) : workplaces.length ? (
-          <Panel className="divide-y">
-            {workplaces.map((w) => (
-              <div key={w.id} className="flex items-center gap-3 px-4 py-3">
-                <WorkplaceDot color={w.color} />
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{w.name}</span>
-              </div>
-            ))}
-          </Panel>
-        ) : (
-          <NoWorkplaces />
-        )}
-      </Section>
-      <Section
-        title="Ближайшие смены"
-        action={workplaces.length > 0 ? (
-          <Button asChild size="sm" variant="ghost" className="text-primary">
-            <Link to="/app/shifts/new"><Plus className="size-4" />Добавить</Link>
-          </Button>
-        ) : undefined}
-      >
-        {shifts.isPending ? (
-          <Skeleton className="h-24 rounded-2xl" />
-        ) : shifts.isError ? (
-          <ErrorState onRetry={() => shifts.refetch()} />
-        ) : upcoming.length ? (
-          <Panel className="divide-y px-4">
-            {upcoming.map((s) => <PersonalShiftRow key={s.id} shift={s} name={wpMap.get(s.workplace_id)?.name} color={wpMap.get(s.workplace_id)?.color} />)}
-          </Panel>
-        ) : (
-          shifts.data?.length ? <p className="text-sm text-muted-foreground">Нет ближайших смен</p> : <NoShifts />
-        )}
-      </Section>
-      {completed.length > 0 && <Section title="Последние завершённые смены" action={<Button asChild size="sm" variant="ghost" className="text-primary"><Link to="/app/stats">Статистика</Link></Button>}>
-        <Panel className="divide-y px-4">{completed.slice(0, 5).map((s) => <div key={s.id} className="pt-3"><p className="text-xs text-muted-foreground">{s.local_start_date.split("-").reverse().join(".")}</p><PersonalShiftRow shift={s} name={wpMap.get(s.workplace_id)?.name} color={wpMap.get(s.workplace_id)?.color} /></div>)}</Panel>
-      </Section>}
-    </div>
-  );
+  const today = workplaceToday(timezone);
+  const monthDate = chosenMonth ?? new Date(`${today.slice(0, 7)}-01T12:00:00`);
+  const month = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
+  const visible = (shifts.data ?? []).filter((s) => workplace === "all" || s.workplace_id === workplace);
+  const monthly = completedAccountShifts(visible, month, timezone);
+  const forecast = accountForecast(visible.filter((s) => formatInTimeZone(s.starts_at, timezone).startsWith(month)), workplaces);
+  const recent = completedAccountShifts(visible, null, timezone).slice(0, 4);
+  const next = visible.filter((s) => s.status === "in_progress" || s.status === "pending" || (s.status === "planned" && Date.parse(s.ends_at) > Date.now()))
+    .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at))[0];
+  const nextWorkplace = next ? wpMap.get(next.workplace_id) : undefined;
+  const hour = new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hourCycle: "h23" }).format(new Date());
+  const greeting = Number(hour) < 6 ? "Доброй ночи" : Number(hour) < 12 ? "Доброе утро" : Number(hour) < 18 ? "Добрый день" : "Добрый вечер";
+  return <div className="space-y-8">
+    <header className="flex items-center justify-between px-5 pt-6"><div className="min-w-0"><p className="text-sm text-muted-foreground">{greeting},</p><h1 className="break-words font-display text-2xl font-semibold">{settings.data?.profile.name || sessionName(accountUser)}</h1></div></header>
+    <Section><WorkplaceChips workplaces={workplaces} value={workplace} onChange={setWorkplace} /></Section>
+    {shifts.isPending || settings.isPending ? <Section><Skeleton className="h-56 rounded-3xl" /></Section>
+      : shifts.isError || settings.isError ? <Section><ErrorState onRetry={() => { shifts.refetch(); settings.refetch(); }} /></Section>
+      : <>
+        <Section><PersonalEarnings shifts={monthly} title="Заработок" home forecast={forecast} action={<MonthSwitcher month={monthDate} onChange={setChosenMonth} className="-mr-2" />} /></Section>
+        <Section title="Личная выручка"><p className="mb-2 text-xs text-muted-foreground">Текущий месяц</p>{workplaces.length ? <PersonalRevenue shifts={visible.filter((s) => s.local_start_date.startsWith(today.slice(0, 7)))} workplaces={workplaces} selected={workplace} /> : <NoWorkplaces />}</Section>
+        <Section title="Следующая смена">{next ? <Panel className="p-4"><Link to="/app/shifts/$id" params={{ id: next.id }} className="block">
+          <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="font-semibold">{shiftDayLabel(next.local_start_date)}</p><p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground tabular"><Clock className="size-3.5 shrink-0" />{next.start_time}–{next.end_time} · {formatHours(shiftMinutes(next.start_time, next.end_time))}</p></div><StatusBadge status={next.status} /></div>
+          <p className="mt-3 flex items-center gap-2 text-sm"><MapPin className="size-3.5 shrink-0 text-muted-foreground" />{nextWorkplace && <WorkplaceDot color={nextWorkplace.color} />}<span className="min-w-0 break-words">{nextWorkplace?.name ?? "Место работы"}</span></p>
+        </Link></Panel> : <EmptyState icon={CalendarPlus} title="Нет запланированных смен" text="Добавьте смену, чтобы видеть её здесь" action={<Button asChild><Link to="/app/shifts/new">Добавить смену</Link></Button>} />}</Section>
+        <Section title="Последние смены" action={<Link to="/app/calendar" className="text-sm font-medium text-primary">Все смены</Link>}>
+          {recent.length ? <div className="divide-y">{recent.map((s) => <PersonalShiftRow key={s.id} shift={s} name={wpMap.get(s.workplace_id)?.name} color={wpMap.get(s.workplace_id)?.color} showDate />)}</div> : <EmptyState icon={Clock} title="Пока нет завершённых смен" text="Здесь появятся ваши отработанные смены" />}
+        </Section>
+      </>}
+  </div>;
 }
