@@ -38,11 +38,22 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM public.monthly_commission_results WHERE workplace_id=w AND month=oldmonth AND state='final' AND commission_amount=40000) THEN RAISE EXCEPTION 'Correction must recalculate 2 percent of all 2 million'; END IF;
  PERFORM public.shiftly_write(gen_random_uuid(),'shift_delete',(SELECT jsonb_build_object('id',b,'expected_revision',revision) FROM public.shifts WHERE id=b));
  IF (SELECT commission_amount FROM public.monthly_commission_results WHERE workplace_id=w AND month=oldmonth)<>22500 THEN RAISE EXCEPTION 'Delete must recalculate'; END IF;
- ds:=oldmonth+interval '1 month'+10;
+ ds:=(oldmonth+interval '1 month')::date+10;
  PERFORM public.shiftly_write(gen_random_uuid(),'shift_edit',(SELECT jsonb_build_object('id',a,'expected_revision',revision,'workplace_id',other,'local_start_date',ds,'local_end_date',ds,'start_time','10:00','end_time','17:00','starts_at',(ds+time '10:00') AT TIME ZONE 'UTC','ends_at',(ds+time '17:00') AT TIME ZONE 'UTC') FROM public.shifts WHERE id=a));
  IF (SELECT revenue_total FROM public.monthly_commission_results WHERE workplace_id=w AND month=oldmonth)<>0 OR (SELECT revenue_total FROM public.monthly_commission_results WHERE workplace_id=other AND month=date_trunc('month',ds)::date)<>1500000 THEN RAISE EXCEPTION 'Move must recalculate both independent workplace months'; END IF;
  IF shiftly_private.earnings(100,20,30,40,50,300)<>-60 OR shiftly_private.earnings(100,0,NULL,0,0,0) IS NOT NULL THEN RAISE EXCEPTION 'Negative and NULL totals'; END IF;
  IF EXISTS(SELECT 1 FROM public.shifts WHERE id=planned AND revenue IS NOT NULL) THEN RAISE EXCEPTION 'Planned revenue touched'; END IF;
+ BEGIN
+  PERFORM public.shiftly_close_month(u,w,date_trunc('month',now() AT TIME ZONE 'Europe/Moscow')::date,gen_random_uuid());
+  RAISE EXCEPTION 'FAIL: current local month accepted';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM='FAIL: current local month accepted' THEN RAISE; END IF;
+ END;
+ IF (timestamptz '2026-11-01 00:30:00Z' AT TIME ZONE 'America/New_York')::date <> date '2026-10-31'
+  OR (timestamptz '2026-10-31 22:00:00Z' AT TIME ZONE 'Europe/Moscow')::date <> date '2026-11-01' THEN RAISE EXCEPTION 'Local month boundary'; END IF;
+ IF shiftly_private.close_due_months()<>1 THEN RAISE EXCEPTION 'Scheduler must close the remaining due workplace month only'; END IF;
+ SELECT count(*) INTO n FROM public.shift_financial_events WHERE user_id=u;
+ IF shiftly_private.close_due_months()<>0 OR (SELECT count(*) FROM public.shift_financial_events WHERE user_id=u)<>n THEN RAISE EXCEPTION 'Scheduler repeat must be a no-op'; END IF;
  PERFORM set_config('request.jwt.claim.sub',gen_random_uuid()::text,true);
  IF EXISTS(SELECT 1 FROM public.shiftly_confirmed_earnings()) THEN RAISE EXCEPTION 'Owner isolation'; END IF;
  RAISE NOTICE 'Stage 4.5: formula, NULL, thresholds, preliminary flags, closure, retry, correction, delete, move and isolation OK';
