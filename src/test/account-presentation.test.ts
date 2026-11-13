@@ -6,6 +6,11 @@ import type { AccountWorkplace } from "@/lib/account-settings";
 const shift: AccountShift = { id: "s", workplace_id: "w", local_start_date: "2026-10-31", local_end_date: "2026-11-01", start_time: "23:00", end_time: "02:00", starts_at: "2026-10-31T22:00:00Z", ends_at: "2026-11-01T01:00:00Z", status: "completed", revenue: 12000, tips: 500, base_pay: 2000, earnings: 3380, comment: null, revision: 1, revenue_revision: 1 };
 const workplace: AccountWorkplace = { id: "w", name: "Бар", color: "green", timezone: "UTC", revenue_goal: null, revision: 1, commission: null, rates: { id: "r", effective_from: "2026-10-01", revision: 1, intervals: [{ id: "i", kind: "hourly", start_time: "22:00", end_time: "03:00", hourly: 300, fixed_amount: null, label: "Ночь", weekdays: [], sort_order: 0 }] } };
 describe("personal presentation periods and forecast", () => {
+  it("retains confirmed completed pay with unknown revenue in period summaries and forecast", () => {
+    const saved = { ...shift, revenue: null, earnings: null, confirmed_earnings: { value: 2100, partial: true } };
+    const rows = accountPeriodShifts([saved], accountPeriodRange("month", "2026-11-13"), "Europe/Moscow");
+    expect(accountForecast(rows, [workplace])).toMatchObject({ actual: { value: 2100, partial: true }, total: 2100 });
+  });
   it("offers inclusive week, month, year, all-time and custom ranges", () => {
     expect(accountPeriodRange("week", "2026-11-13")).toEqual({ from: "2026-11-09", to: "2026-11-15" });
     expect(accountPeriodRange("month", "2026-11-13")).toEqual({ from: "2026-11-01", to: "2026-11-30" });

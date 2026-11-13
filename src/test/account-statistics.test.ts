@@ -10,6 +10,12 @@ const shift = (patch: Partial<AccountShift> = {}): AccountShift => ({
 });
 
 describe("saved personal shifts in home and statistics", () => {
+  it("includes confirmed components when unknown revenue makes the final total unknown", () => {
+    const saved = shift({ revenue: null, earnings: null, confirmed_earnings: { value: 3050, partial: true } });
+    expect(accountShiftSummary([saved]).earnings).toEqual({ value: 3050, partial: true });
+    expect(accountShiftSummary([saved, shift()]).earnings).toEqual({ value: 6430, partial: true });
+    expect(accountWorkplaceRevenue([saved], "bar", "2026-11")).toEqual({ value: null, partial: true });
+  });
   it("includes a saved past completed shift in monthly earnings and recent history", () => {
     const saved = shift();
     const input = [saved, shift({ id: "planned", status: "planned", earnings: 99999 }), shift({ id: "cancelled", status: "cancelled" })];

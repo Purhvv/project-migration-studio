@@ -10,7 +10,7 @@ export function PersonalEarnings({ shifts, title, showTips = true, action, forec
   return <div className="bg-hero rounded-3xl border p-5 shadow-card">
     <div className="flex items-center justify-between gap-2"><p className="text-sm text-muted-foreground">{title}</p>{action}</div>
     <p className={`mt-3 break-words font-display font-semibold ${home ? "text-4xl" : "text-3xl"}`}><Money value={summary.earnings.value} partial={summary.earnings.partial} tone={summary.earnings.value !== null && summary.earnings.value < 0 ? "negative" : "default"} /></p>
-    {summary.earnings.partial && <p className="mt-2 text-xs text-muted-foreground">Часть начислений не подтверждена</p>}
+    {summary.earnings.partial && <p className="mt-2 text-xs text-muted-foreground">{summary.earnings.value === null ? "Начисления пока неизвестны" : "Учтены подтверждённые начисления; итог пока неполный"}</p>}
     {!summary.count && <p className="mt-2 text-xs text-muted-foreground">Нет завершённых смен за период</p>}
     {!!forecast?.upcoming && <div className="mt-3 flex flex-wrap items-baseline justify-between gap-3 rounded-xl bg-background/40 px-3 py-2 text-sm"><div className="min-w-0"><p className="text-muted-foreground">Предварительный заработок</p><p className="text-xs text-muted-foreground">По ставкам за {forecast.upcoming - forecast.missing} из {forecast.upcoming} предстоящих{forecast.missing > 0 && " · без ставок не учтены"}{forecast.uncovered > 0 && " · часть часов без ставки"}</p></div><Money value={forecast.total} partial={forecast.missing > 0 || forecast.uncovered > 0 || forecast.actual.partial} className="font-semibold" /></div>}
     <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-4 border-t pt-4 text-sm">

@@ -8,13 +8,21 @@ export function completedAccountShifts(shifts: AccountShift[], month: string | n
     .sort((a, b) => Date.parse(b.starts_at) - Date.parse(a.starts_at));
 }
 
-/** Read stored confirmed totals only. Never derive actual payroll from rates or revenue. */
+/** Preserve final payroll; otherwise display only its confirmed stored components. */
+export function accountEarnings(shift: AccountShift) {
+  return shift.earnings !== null ? { value: shift.earnings, partial: false }
+    : shift.confirmed_earnings ?? { value: null, partial: true };
+}
+
+/** Never derive actual payroll from rates or revenue. */
 export function accountShiftSummary(shifts: AccountShift[]) {
   const completed = shifts.filter((s) => s.status === "completed");
+  const amounts = completed.map(accountEarnings);
+  const earnings = sumKnown(amounts.map((a) => a.value));
   return {
     count: completed.length,
     minutes: completed.reduce((total, s) => total + (Date.parse(s.ends_at) - Date.parse(s.starts_at)) / 60000, 0),
-    earnings: sumKnown(completed.map((s) => s.earnings)),
+    earnings: { ...earnings, partial: earnings.partial || amounts.some((a) => a.partial) },
     tips: sumKnown(completed.map((s) => s.tips)),
   };
 }
