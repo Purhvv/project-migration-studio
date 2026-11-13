@@ -4,6 +4,7 @@ import { selectRateVersions, validateRatePublication, workplaceToday } from "@/l
 import { isProfileOperation, validateWorkplaceEdit, validateCommissionPublication, writeErrorMessage, type AccountSettings, type AccountWorkplace, type AccountInterval, type ProfileOperation } from "@/lib/account-settings";
 import { validateShiftWrite, SHIFT_OPERATIONS, type AccountShift, type ShiftOperation } from "@/lib/account-shifts";
 import type { ShiftFinances } from "@/lib/account-finances";
+import { confirmedAccountEarnings } from "@/lib/account-confirmed-earnings";
 
 // The generated middleware checks claims. This additional boundary confirms the
 // account with Auth, including revocation/deletion, before private reads.
@@ -66,13 +67,15 @@ export const getAccountShifts = createServerFn({ method: "POST" })
   .middleware([verifiedUser])
   .handler(async ({ context }): Promise<AccountShift[]> => {
     const { data, error } = await context.supabase.from("shifts")
-      .select("id, workplace_id, local_start_date, local_end_date, start_time, end_time, starts_at, ends_at, status, revenue, tips, base_pay, earnings, comment, revision, revenue_revision")
+      .select("id, workplace_id, local_start_date, local_end_date, start_time, end_time, starts_at, ends_at, status, revenue, tips, base_pay, fixed_pay, commission_pay, earnings, comment, revision, revenue_revision, shift_adjustments(kind, amount)")
       .eq("user_id", context.verifiedUserId)
       .is("deleted_at", null)
       .order("local_start_date")
       .order("start_time");
     if (error) throw new Error("SHIFTLY_SHIFTS_UNAVAILABLE");
-    return data.map((s) => ({ ...s, status: s.status as AccountShift["status"], start_time: s.start_time.slice(0, 5), end_time: s.end_time.slice(0, 5) }));
+    return data.map(({ shift_adjustments, fixed_pay, commission_pay, ...s }) => ({ ...s,
+      confirmed_earnings: confirmedAccountEarnings({ ...s, fixed_pay, commission_pay, shift_adjustments }),
+      status: s.status as AccountShift["status"], start_time: s.start_time.slice(0, 5), end_time: s.end_time.slice(0, 5) }));
   });
 
 /** Detailed finances are isolated from home/statistics reads for stage 4.4. */

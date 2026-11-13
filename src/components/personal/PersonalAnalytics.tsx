@@ -8,7 +8,7 @@ import { Money, Panel, Section } from "@/components/shared/primitives";
 import { PersonalRevenue } from "@/components/personal/PersonalRevenue";
 import { PersonalShiftRow } from "@/components/personal/PersonalCalendar";
 import { goalProgress } from "@/lib/analytics";
-import { accountShiftSummary } from "@/lib/account-statistics";
+import { accountEarnings, accountShiftSummary } from "@/lib/account-statistics";
 import { accountForecast } from "@/lib/account-presentation";
 import { formatInTimeZone } from "@/lib/account-statistics-time";
 import type { AccountShift } from "@/lib/account-shifts";
@@ -51,15 +51,15 @@ export function PersonalAnalytics({ rows, revenueRows, settings, monthly, curren
   const summary = accountShiftSummary(rows);
   const groups = new Map<string, AccountShift[]>();
   for (const s of rows) { const date = formatInTimeZone(s.starts_at, timezone); const key = monthly ? date.slice(0, 7) : date; groups.set(key, [...(groups.get(key) ?? []), s]); }
-  const data = [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([key, list]) => ({ key, label: fmtDate(monthly ? key + "-01" : key, monthly ? "LLL yyyy" : "d MMM, EEE"), value: sumKnown(list.map((s) => s.earnings)).value }));
+  const data = [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([key, list]) => ({ key, label: fmtDate(monthly ? key + "-01" : key, monthly ? "LLL yyyy" : "d MMM, EEE"), value: accountShiftSummary(list).earnings.value }));
   const weekday = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((label, i) => {
-    const known = rows.filter((s) => (new Date(`${formatInTimeZone(s.starts_at, timezone)}T12:00:00Z`).getUTCDay() + 6) % 7 === i && s.earnings !== null);
+    const known = rows.filter((s) => (new Date(`${formatInTimeZone(s.starts_at, timezone)}T12:00:00Z`).getUTCDay() + 6) % 7 === i && accountEarnings(s).value !== null);
     const s = accountShiftSummary(known);
     return { key: label, label, value: s.earnings.value !== null && s.minutes ? Math.round(s.earnings.value / (s.minutes / 60)) : null };
   });
-  const confirmed = rows.filter((s) => s.earnings !== null);
+  const confirmed = rows.filter((s) => accountEarnings(s).value !== null);
   const knownMinutes = accountShiftSummary(confirmed).minutes;
-  const ranked = [...confirmed].sort((a, b) => (b.earnings ?? 0) - (a.earnings ?? 0));
+  const ranked = [...confirmed].sort((a, b) => (accountEarnings(b).value ?? 0) - (accountEarnings(a).value ?? 0));
   const f = accountForecast(currentShifts, settings.workplaces);
   const map = new Map(settings.workplaces.map((w) => [w.id, w]));
   const structure = [{ label: "Почасовая оплата / ставки", value: sumKnown(confirmed.map((s) => s.base_pay)).value }, { label: "Процент от выручки", value: null }, { label: "Личные чаевые", value: sumKnown(confirmed.map((s) => s.tips)).value }, { label: "Премии", value: null }, { label: "Штрафы — вычет", value: null }];
@@ -72,6 +72,7 @@ export function PersonalAnalytics({ rows, revenueRows, settings, monthly, curren
   });
   const metrics = [{ label: "За смену", value: summary.earnings.value !== null && confirmed.length ? Math.round(summary.earnings.value / confirmed.length) : null }, { label: "За час", value: summary.earnings.value !== null && knownMinutes ? Math.round(summary.earnings.value / (knownMinutes / 60)) : null }, { label: "Чаевые", value: summary.tips.value }, { label: "Премии", value: null }, { label: "Штрафы", value: null }];
   return <>
+    {summary.earnings.partial && <Section><p className="text-xs text-muted-foreground">Заработок, графики и сравнение смен учитывают только известные начисления; итог может измениться после уточнения сумм.</p></Section>}
     <Section title="Динамика заработка"><ValueChart data={data} field="Заработок" /></Section>
     <Section title="Динамика личной выручки"><Panel className="p-3"><div className="mb-3 flex flex-wrap gap-3 text-xs text-muted-foreground">{revenueIds.map((id) => <span key={id}>{map.get(id)?.name ?? "Архивное место работы"}</span>)}</div>{revenueData.length ? <ResponsiveContainer width="100%" height={230}><LineChart data={revenueData} margin={{ top: 20, right: 15, bottom: 5, left: 0 }}>
       <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} /><YAxis width={65} tickFormatter={(v) => formatNumber(v)} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} axisLine={false} tickLine={false} />

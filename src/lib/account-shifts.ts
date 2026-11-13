@@ -20,6 +20,8 @@ export type AccountShift = {
   tips: number | null;
   base_pay: number | null;
   earnings: number | null;
+  /** Confirmed stored components, with missing components explicitly marked; not the final payroll. */
+  confirmed_earnings?: { value: number | null; partial: boolean };
   comment: string | null;
   revision: number;
   revenue_revision: number;

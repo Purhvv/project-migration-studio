@@ -12,6 +12,7 @@ import { STATUS_META, StatusIcon, WorkplaceDot, shiftDayLabel, wpColor } from "@
 import { NoShifts } from "@/components/personal/PersonalEmpty";
 import { accountSettingsOptions, accountShiftsOptions } from "@/data/account-queries";
 import { findAccountConflicts, type AccountShift } from "@/lib/account-shifts";
+import { accountEarnings } from "@/lib/account-statistics";
 import { fmtDate, formatHours, formatHoursShort, formatNumber, shiftMinutes } from "@/lib/format";
 import type { ShiftStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -181,7 +182,7 @@ export function PersonalShiftRow({ shift, name, color, showDate = false }: { shi
       </div>
       <div className="shrink-0 text-right">
         {shift.status === "completed" ? (
-          <Money value={shift.earnings} className="text-sm font-semibold" />
+          <Money value={accountEarnings(shift).value} partial={accountEarnings(shift).partial} className="text-sm font-semibold" />
         ) : (
           <span className="inline-flex items-center gap-1 rounded-full border bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
             <StatusIcon status={shift.status} />{STATUS_META[shift.status].label}
