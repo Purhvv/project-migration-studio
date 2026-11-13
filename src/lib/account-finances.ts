@@ -1,5 +1,6 @@
 import type { AccountShift, AdjustmentDraft } from "@/lib/account-shifts";
 import { cleanMoney, shiftCompletePayload } from "@/lib/account-shifts";
+import type { Json } from "@/integrations/supabase/types";
 
 export type FinancialShift = AccountShift & {
   fixed_pay: number | null;
@@ -12,7 +13,7 @@ export type ShiftFinances = {
   adjustments: FinancialAdjustment[];
   fixedPayments: Array<{ id: string; amount_snapshot: number | null; label_snapshot: string }>;
   commission: { state: string; calculation_available: boolean; applied_percent: number | null; missing_revenue_count: number } | null;
-  events: Array<{ id: string; operation_id: string; event_type: string; created_at: string; before_snapshot: unknown; after_snapshot: unknown }>;
+  events: Array<{ id: string; operation_id: string; event_type: string; created_at: string; before_snapshot: Json; after_snapshot: Json }>;
 };
 
 /** Exact bounds validation only; money arithmetic stays in PostgreSQL NUMERIC. */
