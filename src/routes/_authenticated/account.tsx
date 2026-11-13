@@ -53,7 +53,7 @@ function Account() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Профиль" subtitle="Личное пространство" />
+      <PageHeader title="Профиль" />
       {settings.isPending ? <Section><p role="status" className="text-sm text-muted-foreground">Загружаем профиль…</p></Section>
         : settings.isError ? <Section><ErrorState onRetry={() => void settings.refetch()} /></Section> : (
         <>
@@ -68,10 +68,10 @@ function Account() {
           </Section>
           <Section title="Работа">
             <Panel className="divide-y overflow-hidden">
-              <SettingsRow icon={Target} label="Мои цели" onClick={() => setOpen("goals")} />
-              <SettingsRow icon={Briefcase} label="Мои рабочие места" hint={`${data?.workplaces.length ?? 0} активных`} onClick={() => setOpen("workplaces")} />
+              <SettingsRow icon={Briefcase} label="Места работы" hint={`${data?.workplaces.length ?? 0} активных`} onClick={() => setOpen("workplaces")} />
               <SettingsRow icon={Coins} label="Ставки" onClick={() => setOpen("rates")} />
               <SettingsRow icon={Percent} label="Процент от выручки" onClick={() => setOpen("commission")} />
+              <SettingsRow icon={Target} label="Финансовые цели" onClick={() => setOpen("goals")} />
             </Panel>
           </Section>
           <Section title="Приложение">

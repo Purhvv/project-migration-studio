@@ -58,7 +58,10 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
     onError: (e) => toast.error(e instanceof Error ? e.message : "Не удалось сохранить. Попробуйте ещё раз."),
   });
   const deletion = useMutation({
-    mutationFn: () => write({ data: { key: crypto.randomUUID(), type: "shift_delete", payload: shiftDeletePayload(initial!) } }),
+    mutationFn: () => {
+      if (!initial) throw new Error("Смена не найдена.");
+      return write({ data: { key: crypto.randomUUID(), type: "shift_delete", payload: shiftDeletePayload(initial) } });
+    },
     onSuccess: async () => {
       toast.success("Смена удалена");
       await queryClient.invalidateQueries({ queryKey: ["account", userId] });
@@ -153,8 +156,6 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
         )}
       </Panel>
 
-      <Field label="Комментарий"><Textarea aria-label="Комментарий" rows={2} placeholder="Необязательно" value={comment} onChange={(e) => setComment(e.target.value)} /></Field>
-
       {asCompleted && (
         <Panel className="space-y-4 p-4">
           <div className="flex items-center gap-2 text-sm font-medium">
@@ -169,8 +170,10 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
           {estimate?.hasRates && estimate.uncoveredMinutes > 0 && (
             <p className="text-xs text-muted-foreground">{formatHours(estimate.uncoveredMinutes)} смены не покрыты ставками и не учтены в сумме.</p>
           )}
-          <Field label="Выручка"><NumberInput aria-label="Выручка" placeholder="Неизвестна" value={revenue} onValueChange={setRevenue} /></Field>
-          <Field label="Личные чаевые"><NumberInput aria-label="Личные чаевые" placeholder="Неизвестны" value={tips} onValueChange={setTips} /></Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Выручка"><NumberInput aria-label="Выручка" placeholder="Неизвестна" value={revenue} onValueChange={setRevenue} /></Field>
+            <Field label="Личные чаевые"><NumberInput aria-label="Личные чаевые" placeholder="Неизвестны" value={tips} onValueChange={setTips} /></Field>
+          </div>
           <AdjustmentList title="Премии" items={bonuses} onChange={setBonuses} kind="bonus" />
           <AdjustmentList title="Штрафы" items={penalties} onChange={setPenalties} kind="penalty" />
           <div className="space-y-1.5 border-t pt-3">
@@ -182,6 +185,8 @@ export function PersonalShiftForm({ userId, workplaces, shifts, initial, initial
           </div>
         </Panel>
       )}
+
+      <Field label="Комментарий"><Textarea aria-label="Комментарий" rows={2} placeholder="Необязательно" value={comment} onChange={(e) => setComment(e.target.value)} /></Field>
 
       {conflicts.length > 0 && (
         <div className="space-y-2 rounded-2xl border border-negative/40 bg-negative/5 p-4">

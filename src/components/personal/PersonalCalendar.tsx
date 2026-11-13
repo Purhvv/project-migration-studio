@@ -6,12 +6,13 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Chips, EmptyState, ErrorState, MonthSwitcher, Money, NavChevron, PageHeader, Section } from "@/components/shared/primitives";
+import { EmptyState, ErrorState, MonthSwitcher, Money, NavChevron, PageHeader, Section } from "@/components/shared/primitives";
+import { WorkplaceChips } from "@/components/shared/WorkplaceChips";
 import { STATUS_META, StatusIcon, WorkplaceDot, shiftDayLabel, wpColor } from "@/components/shifts/shift-ui";
 import { NoShifts } from "@/components/personal/PersonalEmpty";
 import { accountSettingsOptions, accountShiftsOptions } from "@/data/account-queries";
 import { findAccountConflicts, type AccountShift } from "@/lib/account-shifts";
-import { formatHours, formatHoursShort, formatNumber, shiftMinutes } from "@/lib/format";
+import { fmtDate, formatHours, formatHoursShort, formatNumber, shiftMinutes } from "@/lib/format";
 import type { ShiftStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -60,19 +61,13 @@ export function PersonalCalendar({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Календарь" subtitle="Личное пространство" action={<MonthSwitcher month={month} onChange={setMonth} className="-mr-2" />} />
-      {workplaces.length > 1 && (
-        <Section>
-          <Chips value={wp} onChange={setWp} options={[{ value: "all", label: "Все места" }, ...workplaces.map((w) => ({ value: w.id, label: w.name }))]} />
-        </Section>
-      )}
+      <PageHeader title="Календарь" action={<MonthSwitcher month={month} onChange={setMonth} className="-mr-2" />} />
+      <Section><WorkplaceChips workplaces={workplaces} value={wp} onChange={setWp} /></Section>
       <Section>
         {shifts.isPending ? (
           <Skeleton className="h-96 rounded-2xl" />
         ) : shifts.isError ? (
           <ErrorState onRetry={() => shifts.refetch()} />
-        ) : !hasAny ? (
-          <NoShifts />
         ) : (
           <>
             <div className="grid grid-cols-7 pb-2 text-center text-xs text-muted-foreground">
@@ -166,7 +161,7 @@ function DayMarker({ shift, color }: { shift: AccountShift; color: string | unde
   );
 }
 
-export function PersonalShiftRow({ shift, name, color }: { shift: AccountShift; name?: string | undefined; color?: string | undefined }) {
+export function PersonalShiftRow({ shift, name, color, showDate = false }: { shift: AccountShift; name?: string | undefined; color?: string | undefined; showDate?: boolean }) {
   const cancelled = shift.status === "cancelled";
   return (
     <Link
@@ -174,6 +169,7 @@ export function PersonalShiftRow({ shift, name, color }: { shift: AccountShift; 
       params={{ id: shift.id }}
       className={cn("flex min-w-0 items-center gap-3 py-3.5 transition-colors active:opacity-70", cancelled && "opacity-60")}
     >
+      {showDate && <div className="grid w-11 shrink-0 place-items-center rounded-xl bg-secondary py-1.5 text-center leading-tight"><span className="text-base font-semibold tabular">{fmtDate(shift.local_start_date, "d")}</span><span className="text-[11px] text-muted-foreground">{fmtDate(shift.local_start_date, "EEEEEE")}</span></div>}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 text-sm font-medium">
           {color && <WorkplaceDot color={color as never} />}
