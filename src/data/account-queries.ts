@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import { getAccountProfile, getAccountSettings, getAccountShifts } from "@/lib/account.functions";
+import { getAccountProfile, getAccountSettings, getAccountShifts, getAccountShiftFinances } from "@/lib/account.functions";
 
 // Private account caches never share keys or queryFns with the public mock demo.
 export const accountProfileOptions = (userId: string) => queryOptions({
@@ -19,6 +19,13 @@ export const accountSettingsOptions = (userId: string) => queryOptions({
 export const accountShiftsOptions = (userId: string) => queryOptions({
   queryKey: ["account", userId, "shifts"],
   queryFn: () => getAccountShifts(),
+  retry: false,
+  staleTime: 0,
+});
+
+export const accountShiftFinancesOptions = (userId: string, id: string) => queryOptions({
+  queryKey: ["account", userId, "shift-finances", id],
+  queryFn: () => getAccountShiftFinances({ data: { id } }),
   retry: false,
   staleTime: 0,
 });

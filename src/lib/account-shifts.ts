@@ -2,6 +2,7 @@ import { selectRateVersions } from "@/lib/account-rates";
 import type { AccountWorkplace } from "@/lib/account-settings";
 import { shiftMinutes } from "@/lib/format";
 import type { ShiftStatus } from "@/lib/types";
+import { validateFinancialFields } from "@/lib/account-finances";
 
 /** Shift row as read from Supabase for the verified owner. Times are trimmed to HH:mm. */
 export type AccountShift = {
@@ -200,6 +201,10 @@ export function validateShiftWrite(type: ShiftOperation, payload: Record<string,
   if (!Number.isFinite(starts) || !Number.isFinite(ends) || ends <= starts) throw new Error("Проверьте дату и время смены.");
   if ("comment" in payload && payload["comment"] !== null && typeof payload["comment"] !== "string") throw new Error("Некорректный комментарий.");
   if (payload["override_conflicts"] !== false) throw new Error("Пересечения смен требуют явного подтверждения.");
+  if (type === "shift_edit" || type === "shift_complete") {
+    validateFinancialFields(payload);
+    return;
+  }
   if (type === "shift_create_completed") {
     const validMoney = (v: unknown) => v === null || (typeof v === "string" && MONEY_PATTERN.test(v) && Number(v) <= 999999999999.99);
     if ("revenue" in payload && !validMoney(payload["revenue"])) throw new Error("Выручка: сумма с точностью до копеек или пусто.");
